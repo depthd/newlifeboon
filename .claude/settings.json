@@ -1,0 +1,49 @@
+{
+  "//": "Разрешения на то, что в этом проекте делается постоянно: чтобы новый чат не тратил ходы на спрашивание.",
+  "permissions": {
+    "allow": [
+      "Bash(npm test:*)",
+      "Bash(npm run:*)",
+      "Bash(npm install)",
+      "Bash(npm ci)",
+      "Bash(npx tsc:*)",
+      "Bash(node tools/:*)",
+      "Bash(node --experimental-strip-types tools/:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git branch:*)",
+      "Bash(git revert:*)",
+      "Bash(git stash:*)"
+    ],
+    "deny": []
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/tools/ветки.mjs\"",
+            "timeout": 120
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/tools/ветки.mjs\" догнать",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  },
+  "//ветки": "Начало чата: отчёт, что лежит в ветках и не дошло до main. Конец каждого хода: ветка чата уходит на GitHub, main перематывается на неё вперёд (назад не умеет — push без --force). Включено 24.09 по «да» Алекса (решение 095)."
+}

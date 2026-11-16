@@ -1,0 +1,49 @@
+{
+  "name": "lifeboonremake",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tools/all.mjs",
+    "types": "node tools/types.mjs",
+    "dev": "vite --port 5199",
+    "build": "node tools/types.mjs && vite build",
+    "shot": "node --experimental-strip-types tools/shot.mjs",
+    "check": "node --experimental-strip-types tools/check.ts",
+    "page": "node --experimental-strip-types tools/page.mjs",
+    "fuzz": "node --experimental-strip-types tools/fuzz.ts",
+    "scenes": "node --experimental-strip-types tools/scenes.ts",
+    "play": "node tools/play.mjs",
+    "section": "node --experimental-strip-types tools/section.ts",
+    "car": "node --experimental-strip-types tools/car.ts",
+    "drive": "node --experimental-strip-types tools/drive.ts",
+    "ride": "node tools/ride.mjs",
+    "traffic": "node --experimental-strip-types tools/traffic.ts",
+    "lanes": "node --experimental-strip-types tools/lanes.ts",
+    "where": "node --experimental-strip-types tools/where.ts",
+    "load": "node --experimental-strip-types tools/load.ts",
+    "walk": "node --experimental-strip-types tools/walk.ts",
+    "plan": "node --experimental-strip-types tools/plan.ts",
+    "inside": "node tools/inside.mjs",
+    "report": "node --experimental-strip-types tools/report.ts",
+    "site": "node tools/site.mjs",
+    "deploy": "node tools/deploy.mjs",
+    "life": "node --experimental-strip-types tools/life.ts",
+    "морфология": "node --experimental-strip-types tools/морфология.ts",
+    "глаз": "node tools/глаз.mjs",
+    "трава": "node --experimental-strip-types tools/трава.ts",
+    "деревья": "node --experimental-strip-types tools/деревья.ts"
+  },
+  "dependencies": {
+    "cdt2d": "^1.0.0",
+    "clipper-lib": "^6.4.2",
+    "robust-predicates": "^3.0.3",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.2",
+    "@types/three": "^0.185.0",
+    "playwright": "1.56.1",
+    "typescript": "^5.9.0",
+    "vite": "^7.0.0"
+  }
+}

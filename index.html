@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Песочница дорог</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap"
+    />
+    <style>
+      :root {
+        --ink: #0f1418;
+        --panel: rgba(15, 20, 24, 0.82);
+        --edge: rgba(233, 236, 233, 0.16);
+        --text: #eef1ed;
+        --muted: #97a493;
+        --mark: #e8e4d2;
+        --sans: 'IBM Plex Sans Condensed', 'Segoe UI', system-ui, sans-serif;
+        --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: var(--ink);
+        font-family: var(--sans);
+        color: var(--text);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      canvas { display: block; touch-action: none; }
+
+      .layer {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        padding: clamp(14px, 2.4vw, 26px);
+        gap: 12px;
+        pointer-events: none;
+      }
+
+      .top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px; }
+
+      .mark {
+        background: var(--panel);
+        border: 1px solid var(--edge);
+        border-radius: 3px;
+        backdrop-filter: blur(8px);
+        padding: 9px 13px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--mark);
+        line-height: 1.5;
+      }
+      .mark span { display: block; color: var(--muted); letter-spacing: 0.08em; font-weight: 500; }
+      .mark span.fresh { color: #a9e0b0; }
+
+      /* Что нового в этой сборке: чтобы было видно, ту ли версию открыли */
+      .news {
+        align-self: end;
+        justify-self: start;
+        max-width: min(400px, 42vw);
+        background: var(--panel);
+        border: 1px solid var(--edge);
+        border-radius: 3px;
+        backdrop-filter: blur(8px);
+        padding: 12px 14px;
+        pointer-events: auto;
+        display: none;
+        z-index: 5;
+      }
+      .news.open { display: block; }
+      .mark span { cursor: pointer; }
+      .news h2 {
+        margin: 0 0 8px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .news ol { margin: 0; padding-left: 1.1em; font-size: 12.5px; line-height: 1.55; color: var(--text); }
+      .news li { margin-bottom: 5px; }
+      .news li:last-child { margin-bottom: 0; }
+      .news button {
+        margin-top: 10px;
+        appearance: none;
+        border: 1px dashed var(--edge);
+        background: transparent;
+        color: var(--muted);
+        font: 600 11px/1 var(--sans);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 7px 10px;
+        border-radius: 2px;
+        cursor: pointer;
+      }
+      .news button:hover { color: var(--text); }
+
+      .views {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        pointer-events: auto;
+        background: var(--panel);
+        border: 1px solid var(--edge);
+        border-radius: 3px;
+        padding: 4px;
+        backdrop-filter: blur(8px);
+      }
+
+      .views button {
+        appearance: none;
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font: 600 12px/1 var(--sans);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 8px 12px;
+        border-radius: 2px;
+        cursor: pointer;
+        transition: color 0.15s, background 0.15s;
+      }
+      .views button:hover { color: var(--text); }
+      .views button[aria-pressed='true'] { background: var(--mark); color: #14181a; }
+      .views button:focus-visible { outline: 2px solid var(--mark); outline-offset: 2px; }
+      .views button.plain { color: var(--muted); border: 1px dashed var(--edge); }
+      .views button.plain:hover { color: var(--text); }
+
+      .group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--panel);
+        border: 1px solid var(--edge);
+        border-radius: 3px;
+        padding: 4px 4px 4px 12px;
+        backdrop-filter: blur(8px);
+      }
+      .group > .tag {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .group .views { background: none; border: 0; padding: 0; backdrop-filter: none; }
+
+      .bottom { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
+
+      .readout {
+        background: var(--panel);
+        border: 1px solid var(--edge);
+        border-radius: 3px;
+        padding: 12px 16px;
+        backdrop-filter: blur(8px);
+        display: grid;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .readout h1 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+      }
+
+      .facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 20px;
+        margin: 0;
+        font-family: var(--mono);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+        color: var(--muted);
+      }
+      .facts div { display: flex; gap: 8px; }
+      .facts b { color: var(--text); font-weight: 500; }
+
+      .hint {
+        margin: 0;
+        background: var(--panel);
+        border: 1px solid var(--edge);
+        border-radius: 3px;
+        backdrop-filter: blur(8px);
+        padding: 9px 13px;
+        font-size: 12px;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        text-align: right;
+      }
+
+      .hint.refused { color: #f0c98a; border-color: rgba(240, 201, 138, 0.45); }
+      .hint.snapped { color: #a9e0b0; border-color: rgba(169, 224, 176, 0.5); }
+
+      @media (max-width: 620px) {
+        .hint { display: none; }
+        .facts { font-size: 11px; gap: 4px 14px; }
+      }
+      /* ── приборка: видно только за рулём ── */
+      .dash {
+        pointer-events: none;
+        align-self: end;
+        justify-self: center;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding: 12px 18px;
+        background: var(--panel);
+        border: 1px solid var(--edge);
+        border-radius: 3px;
+        backdrop-filter: blur(8px);
+        color: var(--text);
+      }
+      .dash[hidden] { display: none; }
+      .speedo { display: flex; align-items: baseline; gap: 5px; }
+      .speedo b {
+        font-family: var(--sans); font-size: 42px; font-weight: 600; line-height: 1;
+        font-variant-numeric: tabular-nums; min-width: 84px; text-align: right; display: inline-block;
+      }
+      .speedo span { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+      .dash .stack { display: flex; flex-direction: column; gap: 6px; width: 150px; }
+      .rev { height: 5px; background: rgba(233, 236, 233, 0.14); overflow: hidden; }
+      .rev i { display: block; height: 100%; width: 0; background: var(--mark); transition: width 0.06s linear; }
+      .rev i.red { background: #e0483f; }
+      .strip { display: flex; justify-content: space-between; gap: 8px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+      .strip span:first-child { color: var(--text); font-weight: 500; }
+      /* нарушение видно сразу: серым его не заметишь */
+      .strip span.warn { color: #ff6b58; font-weight: 500; }
+      .pedals { display: flex; gap: 6px; align-items: flex-end; height: 46px; }
+      .ped { width: 11px; height: 46px; background: rgba(233, 236, 233, 0.12); display: flex; align-items: flex-end; }
+      .ped i { display: block; width: 100%; height: 0; background: #7fc46b; }
+      .ped i.red { background: #e0483f; }
+      .tiller { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+      .wheel { width: 62px; height: 62px; color: var(--text); }
+      .rail {
+        position: relative; width: 96px; height: 3px;
+        background: rgba(233, 236, 233, 0.16);
+      }
+      .rail::before {
+        content: ''; position: absolute; left: 50%; top: -3px; width: 1px; height: 9px;
+        background: rgba(233, 236, 233, 0.45);
+      }
+      .rail i {
+        position: absolute; top: -3px; left: 50%; width: 3px; height: 9px;
+        background: var(--mark); transform: translateX(-50%);
+      }
+      .grips { display: grid; grid-template-columns: 12px 12px; gap: 4px; }
+      .grips i { width: 12px; height: 16px; background: rgba(233, 236, 233, 0.16); display: block; }
+      .dash .tip { margin: 0; max-width: 240px; font-size: 11px; line-height: 1.45; color: var(--muted); }
+      /**
+       * Веки. Моргание — самое дешёвое присутствие: две тёмные полосы
+       * на четверть секунды. Без него взгляд стеклянный, и это замечают все,
+       * хотя само моргание не замечает никто.
+       */
+      #lids { position: fixed; inset: 0; pointer-events: none; z-index: 40; --shut: 0; }
+      #lids::before, #lids::after {
+        content: ''; position: absolute; left: 0; right: 0; height: 52%;
+        background: #05070a;
+        transform: scaleY(var(--shut)); will-change: transform;
+      }
+      #lids::before { top: 0; transform-origin: top; }
+      #lids::after { bottom: 0; transform-origin: bottom; }
+
+      /*
+       * Режим игрока — адрес без параметров: только то, что нужно, чтобы ехать.
+       * Стенд (ракурсы, строительство, трава, рельеф…) — за значком настроек.
+       */
+      #настройки { display: none; }
+      body.игрок #настройки {
+        display: block; width: 34px; height: 34px; border-radius: 50%;
+        background: var(--panel); border: 1px solid var(--edge); color: inherit;
+        font-size: 18px; line-height: 1; cursor: pointer; backdrop-filter: blur(8px);
+      }
+      body.игрок .top .group:not(.всегда) { display: none; }
+      body.игрок.стенд .top .group { display: flex; }
+      body.игрок #news { display: none; }
+      body.игрок #d-travel, body.игрок #d-sens { display: none; }
+      body.игрок:not(.стенд) .bottom { display: none; }
+
+      /* Загрузка: кольцо крутится видеокартой, пока страница строит город */
+      #загрузка {
+        position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 18px;
+        background: radial-gradient(ellipse at center, #1c2733 0%, #0b0f14 70%);
+        color: #c9d4de; font: 15px/1.4 system-ui, sans-serif; letter-spacing: 0.04em;
+        transition: opacity 0.6s ease;
+      }
+      #загрузка.готово { opacity: 0; pointer-events: none; }
+      #загрузка .кольцо {
+        width: 54px; height: 54px; border-radius: 50%;
+        border: 3px solid rgba(201, 212, 222, 0.15); border-top-color: #e8c26a;
+        animation: крутись 0.9s linear infinite; will-change: transform;
+      }
+      @keyframes крутись { to { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    <div id="загрузка"><div class="кольцо"></div><p>город строится…</p></div>
+    <div id="lids"></div>
+    <div class="layer">
+      <div class="top">
+        <div class="mark">lifeboonremake<span id="build">сборка не отмечена</span></div>
+        <button type="button" id="настройки" aria-label="Настройки стенда" title="настройки">⚙</button>
+        <div class="group"><span class="tag">ракурс</span>
+          <div class="views" id="views" role="group" aria-label="Ракурс"></div>
+        </div>
+        <div class="group"><span class="tag">строить</span>
+          <div class="views" id="tools" role="group" aria-label="Строительство"></div>
+        </div>
+        <div class="group"><span class="tag">трава · T</span>
+          <div class="views" id="grass" role="group" aria-label="Трава"></div>
+        </div>
+        <div class="group"><span class="tag">листва · L</span>
+          <div class="views" id="leaves" role="group" aria-label="Листва"></div>
+        </div>
+        <div class="group"><span class="tag">ветер · V</span>
+          <div class="views" id="wind" role="group" aria-label="Ветер"></div>
+        </div>
+        <div class="group"><span class="tag">сетка</span>
+          <div class="views" id="wire" role="group" aria-label="Сетка треугольников"></div>
+        </div>
+        <div class="group"><span class="tag">вариант</span>
+          <div class="views" id="variants" role="group" aria-label="Вариант"></div>
+        </div>
+        <div class="group"><span class="tag">рельеф</span>
+          <div class="views" id="terrains" role="group" aria-label="Рельеф"></div>
+        </div>
+        <div class="group"><span class="tag">сцена</span>
+          <div class="views" id="scenes" role="group" aria-label="Сцена"></div>
+        </div>
+        <div class="group всегда"><span class="tag">машина</span>
+          <div class="views" id="drive" role="group" aria-label="Машина"></div>
+        </div>
+      </div>
+      <div class="news" id="news">
+        <h2 id="news-when">что нового</h2>
+        <ol id="news-list"></ol>
+        <button type="button" id="news-close">скрыть</button>
+      </div>
+      <div class="dash" id="dash" hidden>
+        <div class="speedo"><b id="d-speed">0</b><span>км/ч</span></div>
+        <div class="stack">
+          <div class="rev"><i id="d-rev"></i></div>
+          <div class="strip"><span id="d-gear">N</span><span id="d-rpm">800</span><span id="d-mat">асфальт</span><span id="d-travel">подвеска</span><span id="d-sens">руль 700 px</span><span id="d-pdd">ПДД: чисто</span></div>
+        </div>
+        <div class="pedals">
+          <div class="ped"><i id="d-gas"></i></div>
+          <div class="ped"><i id="d-brake" class="red"></i></div>
+        </div>
+        <div class="tiller">
+          <svg class="wheel" viewBox="-14 -14 28 28" aria-label="Положение руля">
+            <circle r="12" fill="none" stroke="currentColor" stroke-width="1.4" opacity="0.3" />
+            <path d="M0 -13.6 V-11" stroke="currentColor" stroke-width="1.4" opacity="0.5" />
+            <g id="d-real" opacity="0.45"><path d="M0 -12 V-4.5" stroke="currentColor" stroke-width="3.4"
+              stroke-linecap="round" /></g>
+            <g id="d-wheel"><path d="M0 -12 V-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+              <path d="M-10.4 3.4 H10.4" stroke="currentColor" stroke-width="1.4" opacity="0.8" /></g>
+          </svg>
+          <div class="rail"><i id="d-hand"></i></div>
+        </div>
+        <div class="grips" id="d-grips"></div>
+        <p class="tip" id="d-tip"></p>
+      </div>
+      <div class="bottom">
+        <div class="readout">
+          <h1 id="road-name">—</h1>
+          <div class="facts" id="facts"></div>
+        </div>
+        <p class="hint" id="hint"></p>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

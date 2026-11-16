@@ -1,0 +1,185 @@
+/**
+ * Осмотр готового мира: цифры, по которым видно, сломан он или нет.
+ *
+ * Целость считается по МЕСТАМ рёбер, а не по номерам вершин. Две вершины
+ * в одной точке — это излом (бордюр, край выемки), а не щель; сшито или нет,
+ * видно по тому, сколько треугольников опирается на каждое ребро.
+ * Без браузера. Используется и одиночной проверкой, и обстрелом случайными
+ * постройками (`npm run fuzz`).
+ */
+
+import type { Surface } from '../src/surface/index.ts';
+import { SEALED } from '../src/surface/index.ts';
+import type { World } from '../src/world/world.ts';
+import { MAX_GRADE } from '../src/world/world.ts';
+
+export interface Report {
+  readonly vertices: number;
+  readonly triangles: number;
+  /** незашитые рёбра внутри мира — через них видно небо */
+  readonly holes: number;
+  /** треугольники, повёрнутые изнанкой вверх: сквозь них тоже видно небо */
+  readonly downFacing: number;
+  /**
+   * Самый вытянутый треугольник ЗАМКНУТОЙ поверхности: иглы дают рваное
+   * освещение. Краску сюда не считаем — она лежит плашмя на асфальте и
+   * светится вместе с ним, какой бы формы ни была.
+   */
+  readonly worstAspect: number;
+  /** треугольники нулевой площади: не треугольники вовсе */
+  readonly flat: number;
+  /**
+   * Самый крутой треугольник ПОЛОТНА — асфальта и тротуара, доля.
+   * Вдоль дороги уклон ограничен, а поперёк никто его не ограничивал: на
+   * перекрёстке высоты двух дорог сходились обрывом, и картинка это скрывала.
+   * Здесь это видно числом.
+   */
+  readonly paved: number;
+  /** Самый крутой треугольник отдельно по асфальту и отдельно по тротуару. */
+  readonly asphalt: number;
+  readonly sidewalk: number;
+  /** самый крутой участок дороги, доля */
+  readonly grade: number;
+  /** самый большой отрыв дороги от земли, метры */
+  readonly lift: number;
+}
+
+/** Край мира спрашивается у САМОГО мира: другого края у него нет. */
+const onBorder = (half: number, x: number, z: number): boolean =>
+  Math.abs(Math.abs(x) - half) < 0.01 || Math.abs(Math.abs(z) - half) < 0.01;
+
+export function inspect(world: World, surface: Surface): Report {
+  const P = surface.positions;
+  const I = surface.indices;
+
+  // Краска поверх асфальта в замкнутую поверхность не входит: её рёбра
+  // и не должны ни на что опираться.
+  const painted = new Uint8Array(I.length / 3);
+  /**
+   * 1 — асфальт, 2 — тротуар, 0 — всё остальное.
+   *
+   * Раньше это был один признак «мощёное» на оба, и предел стоял один
+   * на двоих, вчетверо выше настоящего. За ним пряталось вот что: асфальт
+   * почти в норме (худшее 14%), а ТРОТУАР доходит до 24% при пределе 8%.
+   * Одна цифра на два разных дела прятала то, что по ней ходят ногами.
+   */
+  const paving = new Uint8Array(I.length / 3);
+  for (const g of surface.groups) {
+    if (!SEALED.includes(g.material)) {
+      for (let i = g.start; i < g.start + g.count; i += 3) painted[i / 3] = 1;
+    }
+    if (g.material === 'asphalt' || g.material === 'sidewalk') {
+      const метка = g.material === 'asphalt' ? 1 : 2;
+      for (let i = g.start; i < g.start + g.count; i += 3) paving[i / 3] = метка;
+    }
+  }
+
+  const key = (v: number): string =>
+    `${Math.round(P[v * 3] * 1000)},${Math.round(P[v * 3 + 1] * 1000)},${Math.round(P[v * 3 + 2] * 1000)}`;
+
+  const edges = new Map<string, number>();
+  let downFacing = 0;
+  let worstAspect = 0;
+  let flat = 0;
+  let paved = 0, asphalt = 0, sidewalk = 0;
+
+  for (let t = 0; t < I.length; t += 3) {
+    const paint = painted[t / 3] === 1;
+    if (!paint) {
+      const k = [key(I[t]), key(I[t + 1]), key(I[t + 2])];
+      for (let e = 0; e < 3; e++) {
+        const pair = [k[e], k[(e + 1) % 3]].sort().join('|');
+        edges.set(pair, (edges.get(pair) ?? 0) + 1);
+      }
+    }
+
+    const p = [I[t], I[t + 1], I[t + 2]].map((v) => [P[v * 3], P[v * 3 + 1], P[v * 3 + 2]]);
+    const u = [p[1][0] - p[0][0], p[1][1] - p[0][1], p[1][2] - p[0][2]];
+    const v = [p[2][0] - p[0][0], p[2][1] - p[0][1], p[2][2] - p[0][2]];
+    const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    const len = Math.hypot(n[0], n[1], n[2]);
+    // площадь = len/2; квадратный микрометр — это уже не треугольник
+    if (len < 2e-6) {
+      flat++;
+      continue;
+    }
+    // изнанкой вверх — только у земли: у бордюра вертикальные грани это норма
+    if (n[1] / len < -0.2) downFacing++;
+    // Ступенькой считаем только то, обо что можно споткнуться. Треугольник,
+    // у которого все три вершины по высоте в пределах пяти сантиметров,
+    // ступенькой быть не может, какой бы крутой ни выходила его плоскость:
+    // у торца дороги такие крошки дают 20% на пустом месте.
+    const sides = [
+      Math.hypot(u[0], u[1], u[2]),
+      Math.hypot(v[0], v[1], v[2]),
+      Math.hypot(p[2][0] - p[1][0], p[2][1] - p[1][1], p[2][2] - p[1][2]),
+    ];
+    const longest = Math.max(...sides);
+    const height = len / longest; // len/2 — площадь, высота = 2*площадь/основание
+    if (!paint && height > 1e-9) worstAspect = Math.max(worstAspect, longest / height);
+    if (paving[t / 3] !== 0) {
+      const rise = Math.max(p[0][1], p[1][1], p[2][1]) - Math.min(p[0][1], p[1][1], p[2][1]);
+      // У треугольника тоньше пяти сантиметров направление «вверх» посчитано
+      // из почти совпадающих точек и ничего не значит: у края мира такая
+      // крошка давала 2318% на ровном месте. Настоящая ступенька видна
+      // и на нормальных треугольниках рядом.
+      const thin = height < 0.05;
+      if (rise > 0.05 && !thin) {
+        const уклон = Math.hypot(n[0], n[2]) / Math.max(1e-9, Math.abs(n[1]));
+        paved = Math.max(paved, уклон);
+        if (paving[t / 3] === 1) asphalt = Math.max(asphalt, уклон);
+        else sidewalk = Math.max(sidewalk, уклон);
+      }
+    }
+
+  }
+
+  let holes = 0;
+  for (const [pair, count] of edges) {
+    if (count === 2) continue;
+    const ends = pair.split('|').map((s) => s.split(',').map((n) => Number(n) / 1000));
+    if (count === 1 && onBorder(world.half, ends[0][0], ends[0][2])
+      && onBorder(world.half, ends[1][0], ends[1][2])) continue;
+    holes++;
+  }
+
+  return {
+    vertices: surface.stats.vertices,
+    triangles: surface.stats.triangles,
+    holes,
+    downFacing,
+    worstAspect,
+    flat,
+    paved,
+    asphalt,
+    sidewalk,
+    grade: world.grade,
+    lift: world.lift,
+  };
+}
+
+/** Что из осмотра считается поломкой. Пустой список — всё в порядке. */
+export function problems(r: Report): string[] {
+  const out: string[] = [];
+  if (r.holes > 0) out.push(`${r.holes} незашитых рёбер — сквозь них видно небо`);
+  if (r.downFacing > 0) out.push(`${r.downFacing} треугольников земли повёрнуты изнанкой вверх`);
+  if (r.flat > 0) out.push(`${r.flat} треугольников нулевой площади`);
+  /**
+   * ПРЕДЕЛ — ТОТ ЖЕ, ЧТО У ДОРОГИ, плюс четверть на разбиение.
+   *
+   * Стояло `MAX_GRADE * 4` — то есть 32% проходило как «целая постройка»
+   * при пределе 8%. Порог был поставлен, чтобы не ругаться на бордюр,
+   * но бордюр сюда и не входит: считаются только асфальт и тротуар.
+   * За этим потолком три дня пряталось, что по тротуару местами нельзя
+   * пройти: 24% — это лестница, а не тротуар.
+   *
+   * Четверть сверху — не поблажка, а цена того, что поверхность разбита
+   * на треугольники: треугольник через перегиб читает уклон чуть круче,
+   * чем он есть на самом деле.
+   */
+  const ПРЕДЕЛ = MAX_GRADE * 1.25;
+  if (r.asphalt > ПРЕДЕЛ) out.push(`асфальт круче ${(r.asphalt * 100).toFixed(0)}% при пределе ${(ПРЕДЕЛ * 100).toFixed(0)}%`);
+  if (r.sidewalk > ПРЕДЕЛ) out.push(`тротуар круче ${(r.sidewalk * 100).toFixed(0)}% при пределе ${(ПРЕДЕЛ * 100).toFixed(0)}% — по нему не пройти`);
+  if (r.grade > MAX_GRADE + 0.001) out.push(`дорога круче предела: ${(r.grade * 100).toFixed(1)}%`);
+  return out;
+}

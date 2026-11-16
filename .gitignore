@@ -1,0 +1,7 @@
+node_modules/
+dist/
+build/
+shots/
+
+# личные настройки чата
+.claude/settings.local.json
