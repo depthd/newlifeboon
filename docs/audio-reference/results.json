@@ -1,0 +1,36 @@
+{
+  "upstreamCommit": "c76c5adb9e63f5a54fb0def3b97e8e0ac1a7dea1",
+  "runtime": "v24.22.1",
+  "deterministicNoiseSeed": 12345,
+  "scope": "Node VM only; not a browser performance or listening test",
+  "results": [
+    {
+      "sampleRateHz": 44100,
+      "framesPerChannel": 51200,
+      "outputChannels": 3,
+      "rpm": 3000,
+      "throttlePair": [
+        0,
+        1
+      ],
+      "maximumAbsoluteThrottleDifference": 0,
+      "positiveControlRpm": 3300,
+      "maximumAbsoluteRpmDifference": 4.518692195415497,
+      "conclusion": "Throttle does not affect this processor output"
+    },
+    {
+      "sampleRateHz": 48000,
+      "framesPerChannel": 51200,
+      "outputChannels": 3,
+      "rpm": 3000,
+      "throttlePair": [
+        0,
+        1
+      ],
+      "maximumAbsoluteThrottleDifference": 0,
+      "positiveControlRpm": 3300,
+      "maximumAbsoluteRpmDifference": 4.469316720962524,
+      "conclusion": "Throttle does not affect this processor output"
+    }
+  ]
+}

@@ -31,7 +31,10 @@
     "морфология": "node --experimental-strip-types tools/морфология.ts",
     "глаз": "node tools/глаз.mjs",
     "трава": "node --experimental-strip-types tools/трава.ts",
-    "деревья": "node --experimental-strip-types tools/деревья.ts"
+    "деревья": "node --experimental-strip-types tools/деревья.ts",
+    "audio:dev": "vite --config vite.audio.config.ts --host 0.0.0.0 --port 5200 --strictPort",
+    "audio:build": "vite build --config vite.audio.config.ts",
+    "audio:check": "node tools/audio-check.mjs"
   },
   "dependencies": {
     "cdt2d": "^1.0.0",
