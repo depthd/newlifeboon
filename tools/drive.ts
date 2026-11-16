@@ -213,6 +213,38 @@ function standStill(): number {
   return Math.abs(forwardSpeed(car));
 }
 
+/**
+ * Свободный полёт без аэродинамики: земля не может тормозить ни перенос,
+ * ни вращение. Два режима ловят разные ошибки: малую скорость нельзя
+ * обнулять в воздухе, быстрое движение не должно скрыть гашение рысканья.
+ * Вращаем вокруг главной вертикальной оси: без момента она сохраняется.
+ */
+function freeFlight(): { horizontal: number; angular: number; gravity: number; finite: boolean } {
+  const empty = (): Spot => ({ ...FLAT(), height: -10000 });
+  const result = { horizontal: 0, angular: 0, gravity: 0, finite: true };
+  // Обе машины; игровой шаг и шаг штатного расчётного стенда.
+  for (const passport of [VIPER, LOGAN]) for (const dt of [1 / 300, DT]) for (const velocity of [0.1, 10]) {
+    const p = { ...passport, dragArea: 0, rollingResistance: 0, liftArea: 0 };
+    const car = createCar(p, 0, 0, 0);
+    step(car, p, p.шина, FLAT, drive(0), dt);
+    car.y = 100; car.vx = velocity; car.vy = 0; car.vz = 0;
+    // Постановка Logan успевает чуть наклонить кузов. Для этого
+    // аналитического случая вертикаль должна совпадать с главной осью.
+    car.q = { w: 1, x: 0, y: 0, z: 0 };
+    car.вращение = { x: 0, y: 1, z: 0 };
+    const count = Math.round(2 / dt);
+    for (let i = 0; i < count; i++) {
+      step(car, p, p.шина, empty, drive(0), dt);
+      result.horizontal = Math.max(result.horizontal, Math.abs(car.vx - velocity), Math.abs(car.vz));
+      result.angular = Math.max(result.angular, Math.abs(car.вращение.y - 1), Math.abs(car.вращение.x), Math.abs(car.вращение.z));
+      result.finite &&= [car.x, car.y, car.z, car.vx, car.vy, car.vz, ...Object.values(car.q), ...Object.values(car.вращение)].every(Number.isFinite);
+      result.finite &&= car.wheels.every((w) => w.load === 0 && !w.down);
+    }
+    result.gravity = Math.max(result.gravity, Math.abs(car.vy + 9.80665 * count * dt));
+  }
+  return result;
+}
+
 /** Задний ход: подержать тормоз на стоянке и поехать назад. */
 function backwards(): number {
   const car = createCar(P, 0, 0, 0);
@@ -397,6 +429,13 @@ for (const c of checks) {
 const floored = launch(false);
 const still = standStill();
 const back = backwards();
+const flight = freeFlight();
+if (flight.finite && flight.horizontal < 1e-8 && flight.angular < 1e-6 && flight.gravity < 1e-6) {
+  console.log(`  ✓ свободный полёт, обе машины, 300/600 Гц: ошибка скорости ${flight.horizontal.toExponential(1)} м/с, вращения ${flight.angular.toExponential(1)} рад/с, тяжести ${flight.gravity.toExponential(1)} м/с`);
+} else {
+  console.log(`  ✗ свободный полёт: ошибка скорости ${flight.horizontal.toFixed(6)} м/с, вращения ${flight.angular.toFixed(6)} рад/с, тяжести ${flight.gravity.toFixed(6)} м/с, конечность/нет контактов ${flight.finite}`);
+  failed++;
+}
 if (still > 0.05) { console.log(`  ✗ машина ТРОГАЕТСЯ САМА: ${(still * 3.6).toFixed(2)} км/ч без единой педали`); failed++; }
 else console.log(`  ✓ стоит на месте, когда ничего не нажато`);
 if (back < 3 || back * 3.6 > 55) { console.log(`  ✗ задний ход: ${(back * 3.6).toFixed(1)} км/ч — не едет или едет как вперёд`); failed++; }
