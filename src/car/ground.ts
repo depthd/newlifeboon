@@ -13,6 +13,8 @@ import type { Material, Surface } from '../surface/index.ts';
 import { SEALED } from '../surface/index.ts';
 
 export interface Spot {
+  /** false — поверхности нет; height в таком ответе не является опорой. */
+  readonly present?: boolean;
   /** Высота поверхности в этой точке, м. */
   readonly height: number;
   /** Нормаль — куда смотрит поверхность. Единичная. */
@@ -26,7 +28,7 @@ export interface Spot {
 const CELL = 6; // м, сторона клетки поискового ящика
 
 /** Пусто под колесом внутри мира: дыра в земле — ошибка, её ловит `npm run drive`. */
-const VOID: Spot = { height: -1e4, nx: 0, ny: 1, nz: 0, material: 'grass' };
+const VOID: Spot = { present: false, height: -1e4, nx: 0, ny: 1, nz: 0, material: 'grass' };
 
 /**
  * КРАЙ МИРА: прямоугольник, который покрывает земля, и высота ровной

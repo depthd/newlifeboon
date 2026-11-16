@@ -18,13 +18,13 @@ import { GroundIndex, type Spot, крайМира } from '../src/car/ground.ts';
 import { LOGAN, type Passport, VIPER } from '../src/car/passport.ts';
 import { P_ZERO } from '../src/car/tyre.ts';
 import * as THREE from 'three';
-import { type Car, type Controls, createCar, forwardSpeed, step, подкрутить, точкаКузова, углыКузова, центрКолеса } from '../src/car/car.ts';
+import { type Car, type Controls, createCar, forwardSpeed, PHYSICS_STEP, step, подкрутить, точкаКузова, углыКузова, центрКолеса } from '../src/car/car.ts';
 
 const mode = process.argv[2] ?? '';
 const broken = mode === 'сломать';
 const soft = mode === 'мягко';
 const MPH = 0.44704;
-const DT = 1 / 600;
+const DT = PHYSICS_STEP;
 
 /** Ровный асфальт до горизонта — чтобы мерить машину, а не дорогу. */
 const FLAT = (): Spot => ({ height: 0, nx: 0, ny: 1, nz: 0, material: 'asphalt' });
@@ -491,6 +491,71 @@ if (!broken && !soft) {
     console.log(`  ${ok ? '✓' : '✗'} ${c.name.padEnd(28, '.')} ${`${c.got.toFixed(1)} ${c.unit}`.padStart(11)}  против ${`${c.want} ${c.unit}`.padStart(11)}   ${off >= 0 ? '+' : ''}${(off * 100).toFixed(1)}%`);
   }
 }
+
+// Свойства, которых не проверяет сверка разгона с журналом.
+// Старая принудительная остановка давала vx=0 в воздухе и на любом уклоне.
+console.log('\nКОНТАКТЫ И МАЛАЯ СКОРОСТЬ:');
+const property = (name: string, ok: boolean, detail: string): void => {
+  console.log(`  ${ok ? '✓' : '✗'} ${name}: ${detail}`);
+  if (!ok) failed++;
+};
+for (const p of [VIPER, LOGAN]) {
+  const slope = (x: number): Spot => ({ ...FLAT(), height: 0.1 * x, nx: -0.1 / Math.hypot(1, 0.1), ny: 1 / Math.hypot(1, 0.1) });
+  const c = createCar(p, 0, 0, 0);
+  for (let i = 0; i < 5 / DT; i++) step(c, p, p.шина, slope, drive(0), DT);
+  property(`${p.ярлык}: свободно катится вниз по уклону 10%`, c.x < -0.5 && c.vx < -0.1, `${c.x.toFixed(3)} м, ${c.vx.toFixed(3)} м/с`);
+
+  const air = createCar(p, 0, 0, 0);
+  step(air, p, p.шина, FLAT, drive(0), DT);
+  air.y = 100; air.vy = 0; air.vx = 0.1;
+  const voidGround = (): Spot => ({ ...FLAT(), present: false });
+  let finite = true, unloaded = true, attached = true;
+  for (let i = 0; i < 5 / DT; i++) {
+    step(air, p, p.шина, voidGround, drive(0), DT);
+    finite &&= [air.x, air.y, air.z, air.vx, air.vy, air.vz, ...Object.values(air.q), ...Object.values(air.вращение)].every(Number.isFinite);
+    for (const w of air.wheels) {
+      unloaded &&= !w.down && w.load === 0;
+      const center = центрКолеса(air, w, w.travel);
+      const mount = точкаКузова(air, w.ahead, w.крепление, w.right);
+      attached &&= Math.hypot(center.x - mount.x, center.y - mount.y, center.z - mount.z) <= w.rest + 1e-8;
+    }
+  }
+  // 5 с без контакта: аналитический свободный полёт, погрешность по y от шага Эйлера < 5 см.
+  property(`${p.ярлык}: свободное падение 5 с`, finite && unloaded && attached && Math.abs(air.vy + 9.80665 * 5) < 1e-7 && Math.abs(air.y - (100 - 9.80665 * 25 / 2)) < 0.05 && air.vx > 0.099,
+    `y=${air.y.toFixed(3)} м, vy=${air.vy.toFixed(3)} м/с, vx=${air.vx.toFixed(5)} м/с`);
+
+  const partial = createCar(p, 0, 0, 0);
+  step(partial, p, p.шина, FLAT, drive(0), DT);
+  step(partial, p, p.шина, (_x, z) => z > 0 ? voidGround() : FLAT(), drive(0), DT);
+  property(`${p.ярлык}: два колеса над пустотой`, partial.wheels[1].load === 0 && partial.wheels[3].load === 0 && partial.wheels[0].load > 0 && partial.wheels[2].load > 0,
+    partial.wheels.map((w) => w.load.toFixed(0)).join(' / ') + ' Н');
+
+  const bumpCar = createCar(p, 0, 0, 0);
+  bumpCar.vx = 8;
+  for (const w of bumpCar.wheels) w.spin = 8 / w.radius;
+  let maxPitch = 0, travelRange = 0;
+  for (let i = 0; i < 4 / DT; i++) {
+    step(bumpCar, p, p.шина, (x) => ({ ...FLAT(), height: x > 5 && x < 7 ? 0.08 * Math.sin(Math.PI * (x - 5) / 2) ** 2 : 0 }), drive(0.15), DT);
+    maxPitch = Math.max(maxPitch, Math.abs(bumpCar.pitch));
+    travelRange = Math.max(travelRange, Math.abs(bumpCar.wheels[0].travel - bumpCar.wheels[2].travel));
+  }
+  property(`${p.ярлык}: плавная неровность 8 см`, Number.isFinite(bumpCar.y) && maxPitch > 0.005 && maxPitch < 0.3 && travelRange > 0.02,
+    `тангаж ${(maxPitch * 180 / Math.PI).toFixed(2)}°, разность ходов ${(travelRange * 1000).toFixed(1)} мм`);
+}
+// Прижим проверяем отдельно: серийные паспорта имеют liftArea=0 и не ловили ошибку знака.
+const aeroP = { ...VIPER, liftArea: 1 };
+const aero = createCar(aeroP, 0, 0, 0);
+step(aero, aeroP, aeroP.шина, FLAT, drive(0), DT);
+aero.y = 100; aero.vx = 50; aero.vy = 0;
+step(aero, aeroP, aeroP.шина, FLAT, drive(0), DT);
+property('положительный прижим ускоряет вниз', aero.vy / DT < -9.80665, `${(aero.vy / DT).toFixed(3)} м/с²`);
+
+// Только физика с аналитической плоскостью; город и рендер в замер не входят.
+const bench = createCar(VIPER, 0, 0, 0);
+for (let i = 0; i < 6000; i++) step(bench, VIPER, P_ZERO, FLAT, drive(0.1), DT);
+const started = performance.now();
+for (let i = 0; i < 60000; i++) step(bench, VIPER, P_ZERO, FLAT, drive(0.1), DT);
+console.log(`  стоимость шага (60000, плоская опора): ${((performance.now() - started) * 1000 / 60000).toFixed(2)} мкс`);
 
 console.log(`\n${failed === 0 ? 'СВЕРКА ПРОЙДЕНА' : `СВЕРКА ПРОВАЛЕНА: ${failed}`}\n`);
 process.exit(failed === 0 ? 0 : 1);

@@ -22,7 +22,7 @@ import { createBuilder } from './build.ts';
 import { GroundIndex } from './car/ground.ts';
 import { type Плита, крыльцо, площадкаПодСледом } from './city/площадка.ts';
 import { МАШИНЫ, type Passport, SETUPS } from './car/passport.ts';
-import { type Car, type Кватернион, type ПозаКузова, createCar, forwardSpeed, step, подвесить, подкрутить, центрКолеса } from './car/car.ts';
+import { type Car, type Кватернион, type ПозаКузова, createCar, forwardSpeed, step, PHYSICS_STEP, подвесить, подкрутить, центрКолеса } from './car/car.ts';
 import { createDriver } from './car/controls.ts';
 import { createAim } from './aim.ts';
 import {
@@ -1078,8 +1078,6 @@ addEventListener('keydown', (event) => {
 
 drivePanel();
 
-/** Шаг физики. Не связан с кадрами: на слабой машине счёт тот же. */
-const PHYSICS_STEP = 1 / 300;
 /** Кузов в плане — им машина упирается в твердь. */
 /** Чужие машины рядом с пешеходом в этом кадре: подвижная твердь. */
 const машиныРядом: Форма[] = [];
@@ -1088,13 +1086,13 @@ let bank = 0;
 /**
  * ПОЗА МАШИНЫ НА ЭКРАНЕ — между двумя последними шагами физики.
  *
- * Физика шагает по 1/300 с, кадр идёт, когда его покажет экран, и в кадр
+ * Физика шагает по 1/600 с, кадр идёт, когда его покажет экран, и в кадр
  * укладывается то четыре шага, то пять, то шесть. Показывать последний
  * шаг — значит сдвигать машину за ровный кадр неровно: на 80 км/ч это
- * ±7 см каждый кадр, дрожь. Показывается поза, где машина была ровно
+ * до 3.7 см за шаг, дрожь. Показывается поза, где машина была ровно
  * на время кадра без одного шага: доля пути от предпоследнего шага
  * к последнему — сколько времени осталось в копилке. Отставание всегда
- * одно и то же, 3 мс, и потому его не видно (так делают все, кто считает
+ * одно и то же, 1.7 мс, и потому его не видно (так делают все, кто считает
  * физику постоянным шагом: Glenn Fiedler, «Fix Your Timestep!»).
  */
 /**
@@ -1315,23 +1313,25 @@ viewer.onFrame((dt) => {
   } else следНог = null;
   if (car === null) { следКолёс = []; return; }
   const speed = forwardSpeed(car);
-  const controls = driving
-    ? driver.read(dt)
-    : { steer: 0, throttle: 0, brake: 1, handbrake: true, assist: false };
-  lastControls = controls;
+  let controls = lastControls;
 
   bank = driving ? Math.min(bank + dt, 0.3) : 0;
   if (!driving) позаДо = null;
-  while (bank >= PHYSICS_STEP) {
+  // Сумма дробных длительностей кадров может недобрать шаг на ~1e-14 с.
+  // Округляем только эту погрешность, иначе смена клавиши попадает на другой шаг.
+  const stepsThisFrame = Math.floor((bank + 1e-12) / PHYSICS_STEP);
+  for (let tick = 0; tick < stepsThisFrame; tick++) {
+    controls = driver.read(PHYSICS_STEP);
+    lastControls = controls;
     // перед последним шагом этого кадра — запомнить, откуда он шагнул
-    if (bank < 2 * PHYSICS_STEP) позаДо = позаМашины(car);
+    if (tick === stepsThisFrame - 1) позаДо = позаМашины(car);
     step(car, МАШИНА, МАШИНА.шина, (x, z) => ground.sample(x, z), controls, PHYSICS_STEP);
     // твердь — на КАЖДОМ шаге физики: раз в кадр машина успевала зайти в стену на 14 см
     упереть(твердь, car, { длина: МАШИНА.length, ширина: МАШИНА.width }, МАШИНА.mass, МАШИНА.yawInertia);
-    bank -= PHYSICS_STEP;
+    car.wheels.forEach((w, i) => { spinAngle[i] += w.spin * PHYSICS_STEP; });
+    bank = Math.max(0, bank - PHYSICS_STEP);
     simTime += PHYSICS_STEP;
   }
-  car.wheels.forEach((w, i) => { spinAngle[i] += w.spin * dt; });
   if (gasFrom === null && controls.throttle > 0.05) gasFrom = simTime;
   if (gasFrom !== null && hundredAt === null && Math.abs(speed) >= 27.78) hundredAt = simTime;
 
@@ -1486,21 +1486,27 @@ viewer.onFrame((dt) => {
   scene: sceneName, terrain: terrainName, variant, view: показанныйРакурс, подмены,
 });
 
-(window as unknown as { __car?: () => unknown }).__car = () => (car === null ? null : {
-  x: car.x, z: car.z, yaw: car.yaw, speed: forwardSpeed(car),
-  y: car.y, pitch: car.pitch, roll: car.roll,
-  gear: car.gear, reverse: car.reverse, rpm: car.rpm, sim: simTime,
-  steer: car.steer, neutral: car.neutral, helped: car.helped, command: driver.command,
-  lock: МАШИНА.steerLock, assist: driver.assist, машина: МАШИНА.ярлык,
-  materials: car.wheels.map((w) => w.material),
-  loads: car.wheels.map((w) => Math.round(w.load)),
-  use: car.wheels.map((w) => Number(w.use.toFixed(2))),
-  slip: car.wheels.map((w) => Number(w.slip.toFixed(3))),
-  throttle: Number(lastControls.throttle.toFixed(3)),
-  gearShown: car.gear,
-  lost: car.y < -100,
-  gasFrom, hundredAt,
-});
+(window as unknown as { __car?: () => unknown }).__car = () => {
+  const c = car;
+  return c === null ? null : {
+    x: c.x, z: c.z, yaw: c.yaw, speed: forwardSpeed(c),
+    y: c.y, pitch: c.pitch, roll: c.roll,
+    gear: c.gear, reverse: c.reverse, rpm: c.rpm, sim: simTime,
+    engineLoad: c.engineLoad, engineTorqueNm: c.engineTorqueNm, engineThrottle: c.engineThrottle,
+    vy: c.vy, q: c.q, travel: c.wheels.map((w) => w.travel),
+    wheelCenters: c.wheels.map((w) => центрКолеса(c, w, w.travel)),
+    steer: c.steer, neutral: c.neutral, helped: c.helped, command: driver.command,
+    lock: МАШИНА.steerLock, assist: driver.assist, машина: МАШИНА.ярлык,
+    materials: c.wheels.map((w) => w.material),
+    loads: c.wheels.map((w) => Math.round(w.load)),
+    use: c.wheels.map((w) => Number(w.use.toFixed(2))),
+    slip: c.wheels.map((w) => Number(w.slip.toFixed(3))),
+    throttle: Number(lastControls.throttle.toFixed(3)),
+    gearShown: c.gear,
+    lost: c.y < -100,
+    gasFrom, hundredAt,
+  };
+};
 /**
  * Подбросить машину: на `вверх` метров, с вращением носом и боком, рад/с.
  * Проверкам — снять кувырок в воздухе: колёса обязаны остаться на кузове,

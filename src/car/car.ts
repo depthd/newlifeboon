@@ -12,13 +12,16 @@ import { type Passport, cornerSpring, доНоса, engineTorque, frontArm, rear
 import { type Tyre, SURFACE_GRIP, tyreForce } from './tyre.ts';
 import type { Spot } from './ground.ts';
 
+/** Общий шаг приложения и проверок: жёсткие контакты рассчитаны на 600 Гц. */
+export const PHYSICS_STEP = 1 / 600;
+
 const G = 9.80665;
 const AIR = 1.225;
 /** Ниже этой скорости проскальзывание считать нельзя: деление на ноль. */
 const CRAWL = 1.4;
 
 export interface Controls {
-  /** Положение руля: −1 вправо, +1 влево. */
+  /** Положение руля: −1 влево, +1 вправо. */
   readonly steer: number;
   readonly throttle: number;
   readonly brake: number;
@@ -172,6 +175,12 @@ export interface Car extends ПозаКузова {
   gear: number;
   reverse: boolean;
   rpm: number;
+  /** Фактически приложенный положительный момент двигателя до коробки, Н·м. */
+  engineTorqueNm: number;
+  /** Доля доступного момента (0 при переключении/отсечке), не нагрузка шины. */
+  engineLoad: number;
+  /** Эффективный газ, включая задний ход. */
+  engineThrottle: number;
   shiftLeft: number;
   stopHold: number;
   /** Поставлена ли машина на землю. */
@@ -212,7 +221,7 @@ export function createCar(p: Passport, x: number, z: number, yaw: number): Car {
       wheel(-b, p.trackRear / 2, false),
     ],
     gear: 0, reverse: false, rpm: p.idleRpm, shiftLeft: 0, stopHold: 0,
-    placed: false, neutral: 0, helped: 0,
+    placed: false, neutral: 0, helped: 0, engineTorqueNm: 0, engineLoad: 0, engineThrottle: 0,
   };
 }
 
@@ -374,7 +383,8 @@ export function step(
   const sprung = sprungMass(p);
   if (!car.placed) {
     подвесить(car, p);
-    const under = sample(car.x, car.z).height;
+    const initial = sample(car.x, car.z);
+    const under = initial.present === false ? car.y - p.cgHeight : initial.height;
     car.y = under + p.cgHeight;
     for (const w of car.wheels) w.groundPrev = under;
     car.placed = true;
@@ -398,6 +408,9 @@ export function step(
   const ceiling = car.reverse ? 3500 : p.cutoffRpm - 1;
   const cut = car.shiftLeft > 0 || car.rpm >= ceiling;
   const engine = cut ? 0 : engineTorque(p, car.rpm) * throttle;
+  car.engineThrottle = throttle;
+  car.engineTorqueNm = engine;
+  car.engineLoad = cut ? 0 : throttle;
   const push = engine * ratio * p.driveline * (car.reverse ? -1 : 1);
   /**
    * Торможение двигателем ГАСИТ вращение, а не крутит колёса.
@@ -430,6 +443,10 @@ export function step(
     const free = центрКолеса(car, w, 0);
     const spot = sample(free.x, free.z);
     w.material = spot.material;
+    if (spot.present === false) {
+      w.travel = 0; w.down = false;
+      continue;
+    }
     groundY += spot.height / 4;
     nx += spot.nx / 4; ny += spot.ny / 4; nz += spot.nz / 4;
 
@@ -480,12 +497,12 @@ export function step(
     const w = car.wheels[i];
     ground[i] = along[i] * s + (сквозь[i] > 0 ? упор(сквозь[i], скоростьУпора[i]) : 0);
     // прижимная сила давит на кузов и через подвеску доходит до колёс
-    w.load = ground[i] > 0 ? ground[i] + p.unsprung * G + downforce / 4 : 0;
+    w.load = ground[i] > 0 ? ground[i] + p.unsprung * G : 0;
     if (ground[i] > 0) опора += 0.25;
   }
 
   // ── СИЛЫ НА КУЗОВ: сумма и момент около центра масс (плечо × сила)
-  const сила: Вектор = { x: 0, y: -sprung * G + downforce, z: 0 };
+  const сила: Вектор = { x: 0, y: -sprung * G - downforce, z: 0 };
   const момент: Вектор = { x: 0, y: 0, z: 0 };
   const приложить = (где: Вектор, F: Вектор): void => {
     сила.x += F.x; сила.y += F.y; сила.z += F.z;
@@ -567,7 +584,9 @@ export function step(
    */
   for (const [вперёд, вверх, вправо] of углыКузова(p)) {
     const угол = точкаКузова(car, вперёд, вверх, вправо);
-    const глубина = sample(угол.x, угол.z).height - угол.y;
+    const spot = sample(угол.x, угол.z);
+    if (spot.present === false) continue;
+    const глубина = spot.height - угол.y;
     if (глубина <= 0) continue;
     const r = { x: угол.x - car.x, y: угол.y - car.y, z: угол.z - car.z };
     const rv = cross(ω, r);
@@ -611,12 +630,6 @@ export function step(
   car.вращение = повернуть(car.q, wbNext);
   // сопротивление рысканью: без него машина крутится вечно
   car.вращение.y -= car.вращение.y * Math.min(1, dt * 0.8);
-
-  // полная остановка: иначе машина вечно ползёт от численного мусора
-  if (Math.hypot(car.vx, car.vz) < 0.22 && throttle < 0.05) {
-    car.vx = 0; car.vz = 0; car.вращение.y = 0;
-    for (const w of car.wheels) w.spin = 0;
-  }
 
   car.x += car.vx * dt;
   car.y += car.vy * dt;

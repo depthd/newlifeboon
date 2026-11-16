@@ -18,7 +18,7 @@ import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 import { VIPER } from '../src/car/passport.ts';
 import { P_ZERO } from '../src/car/tyre.ts';
-import { createCar, forwardSpeed, step } from '../src/car/car.ts';
+import { createCar, forwardSpeed, PHYSICS_STEP, step } from '../src/car/car.ts';
 import { GroundIndex } from '../src/car/ground.ts';
 import { buildWorld } from '../src/world/world.ts';
 import { buildSurface } from '../src/surface/index.ts';
@@ -33,7 +33,7 @@ import { SCENES } from '../src/scenes.ts';
 function referenceHundred(from) {
   const index = new GroundIndex(buildSurface(buildWorld(SCENES[scene], terrain), 'A'));
   const car = createCar(VIPER, from.x, from.z, from.yaw);
-  const dt = 1 / 300;
+  const dt = PHYSICS_STEP;
   let gas = 0;
   for (let t = 0; t < 40; t += dt) {
     gas = Math.min(0.85, gas + dt / 0.22); // тот же ход педали, что у клавиши W
@@ -51,10 +51,10 @@ const terrain = process.argv[3] ?? 'plain';
 const OPTIONAL = /fonts\.(googleapis|gstatic)\.com/;
 
 mkdirSync('shots', { recursive: true });
-const server = await createServer({ server: { port: PORT, strictPort: true }, logLevel: 'warn' });
+const server = await createServer({ server: { port: PORT, strictPort: true, hmr: false }, logLevel: 'warn' });
 await server.listen();
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH });
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
 // Шрифты грузятся с чужого хоста, и в контейнере это иногда виснет.
 // Проверка не про шрифты — рубим их сразу, чтобы снимки не ждали сети.
