@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ru">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Двигатель · звуковой стенд</title></head>
+<body>
+  <main>
+    <header><span class="eyebrow">LIFEBOON / AUDIO EXPERIMENT 01</span><h1>Голос двигателя</h1>
+      <p>Четыре цилиндра. Один звуковой эксперимент.</p><span class="tag">Кандидат · не калиброванный K7M</span></header>
+    <section class="engine"><div><span class="label">ОБОРОТЫ КОЛЕНВАЛА</span><div class="tach"><strong id="rpm-value">750</strong><span>об/мин</span></div></div>
+      <canvas id="wave" aria-label="Осциллограмма выходного сигнала"></canvas>
+      <div class="readouts"><span id="state">Звук выключен</span><span id="rate">— Гц</span><span id="fresh">Ручной режим</span></div>
+    </section>
+    <div class="columns"><section>
+      <h2>Управление</h2>
+      <label>Обороты <output id="rpm-label">750 об/мин</output><input id="rpm" type="range" min="750" max="5800" step="1" value="750"></label>
+      <label>Интенсивность сгорания <output id="load-label">0,10</output><input id="load" type="range" min="0" max="1" step="0.01" value="0.1"></label>
+      <p class="hint">load01 задаётся стендом. Это не измеренная нагрузка автомобиля и не положение газа.</p>
+      <label class="check"><input id="combustion" type="checkbox" checked> Сгорание включено</label>
+      <label>Громкость <output id="volume-label">65%</output><input id="volume" type="range" min="0" max="1" step="0.01" value="0.65"></label>
+      <div class="row"><button id="enable" class="primary">Включить звук</button><button id="stop" disabled>Остановить</button><button id="mute" aria-pressed="false" disabled>Mute</button></div>
+      <label class="rate-select">Запрос частоты <select id="sample-rate"><option value="48000">48 000 Гц</option><option value="44100">44 100 Гц</option></select></label>
+      <p class="hint">Фактическая частота показана сверху. Для смены частоты после включения перезагрузите стенд.</p>
+    </section><section>
+      <h2>Проверяемые режимы</h2>
+      <label>Сценарий <select id="scenario"></select></label>
+      <label>Обновления параметров <select id="hz"><option>15</option><option>30</option><option selected>60</option><option>120</option></select></label>
+      <div class="row"><button id="run" disabled>Запустить сценарий</button><button id="pause" disabled>Пауза</button><button id="manual" disabled>Вручную</button></div>
+      <div class="row"><button id="stall100" disabled>Блокировка 100 мс</button><button id="stall500" disabled>Блокировка 500 мс</button></div>
+      <p class="hint">При блокировке интерфейс намеренно замирает. В активном режиме через 250 мс без данных начинается затухание длительностью 100 мс.</p>
+      <div class="row"><button id="record" disabled>Записать 8 с</button><button id="export" disabled>Сохранить WAV + журнал</button></div>
+      <p class="hint">Сохранение рендерит весь выбранный режим в браузере. Запись и журнал имеют общую нулевую точку в отсчётах.</p>
+    </section></div>
+    <footer><span id="message">Включите звук действием пользователя. Начните с умеренной громкости.</span><a href="/docs/audio-lab.md">Описание эксперимента</a></footer>
+  </main><script type="module" src="/src/audio/lab.js"></script>
+</body></html>
