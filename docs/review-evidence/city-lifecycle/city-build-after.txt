@@ -1,0 +1,26 @@
+
+> build
+> node tools/types.mjs && vite build
+
+  ✓ страница...... tsconfig.json
+  ✓ инструменты... tsconfig.tools.json
+
+типы в порядке
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 90 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   16.04 kB │ gzip:   4.40 kB
+dist/assets/index-Cs2ZxA_S.js  1,022.22 kB │ gzip: 295.53 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 4.70s
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+npm notice To update run: npm install -g npm@12.2.2
+npm notice
