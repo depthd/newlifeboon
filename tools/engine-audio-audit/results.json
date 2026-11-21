@@ -1,0 +1,237 @@
+{
+  "upstreamCommit": "c76c5adb9e63f5a54fb0def3b97e8e0ac1a7dea1",
+  "environment": {
+    "node": "v24.22.1",
+    "kind": "Node VM DSP harness, NOT browser or listening test"
+  },
+  "params": {
+    "cylinders": 4,
+    "intakeWaveguideLength": 100,
+    "exhaustWaveguideLength": 100,
+    "extractorWaveguideLength": 100,
+    "intakeOpenReflectionFactor": 0.01,
+    "intakeClosedReflectionFactor": 0.95,
+    "exhaustOpenReflectionFactor": 0.01,
+    "exhaustClosedReflectionFactor": 0.95,
+    "ignitionTime": 0.016,
+    "straightPipeWaveguideLength": 128,
+    "straightPipeReflectionFactor": 0.01,
+    "mufflerElementsLength": [
+      10,
+      15,
+      20,
+      25
+    ],
+    "action": 0.1,
+    "outletWaveguideLength": 5,
+    "outletReflectionFactor": 0.01
+  },
+  "tests": [
+    {
+      "name": "throttle comparison",
+      "rate": 44100,
+      "maxAbsDifference": [
+        0,
+        0,
+        0
+      ],
+      "metrics": [
+        {
+          "peak": 2.9936904907226562,
+          "mean": 0.24491504401175718,
+          "rms": 0.6470692654396966,
+          "acRms": 0.5989284226795282,
+          "nonfinite": 0
+        },
+        {
+          "peak": 2.632528305053711,
+          "mean": 0.39344608755366445,
+          "rms": 0.7492928968569345,
+          "acRms": 0.6376833238128239,
+          "nonfinite": 0
+        },
+        {
+          "peak": 3.107333183288574,
+          "mean": -0.45133583769594193,
+          "rms": 1.0789999115927666,
+          "acRms": 0.9800697785507421,
+          "nonfinite": 0
+        }
+      ]
+    },
+    {
+      "name": "cold zero RPM after 1s settling",
+      "rate": 44100,
+      "metrics": [
+        {
+          "peak": 0.8315531015396118,
+          "mean": 0.02611462302509967,
+          "rms": 0.25054020215877526,
+          "acRms": 0.24917547905445453,
+          "nonfinite": 0
+        },
+        {
+          "peak": 0.6944557428359985,
+          "mean": 0.2256285664160169,
+          "rms": 0.2610992090510658,
+          "acRms": 0.13139462311733016,
+          "nonfinite": 0
+        },
+        {
+          "peak": 2.7048821449279785,
+          "mean": -0.3322099321204889,
+          "rms": 0.589346246277217,
+          "acRms": 0.4867910835271599,
+          "nonfinite": 0
+        }
+      ]
+    },
+    {
+      "name": "3000 to zero RPM after 1s settling",
+      "rate": 44100,
+      "metrics": [
+        {
+          "peak": 0.8318537473678589,
+          "mean": 0.02460590311014821,
+          "rms": 0.2501485482000803,
+          "acRms": 0.248935424756586,
+          "nonfinite": 0
+        },
+        {
+          "peak": 0.6756371259689331,
+          "mean": 0.22262339326170968,
+          "rms": 0.2589790275499171,
+          "acRms": 0.13232143244139577,
+          "nonfinite": 0
+        },
+        {
+          "peak": 3.578446626663208,
+          "mean": -0.32771625080458605,
+          "rms": 0.6079053176387612,
+          "acRms": 0.512006771607631,
+          "nonfinite": 0
+        }
+      ],
+      "phase": 0.9999999999994561
+    },
+    {
+      "name": "block size invariance 64 versus 256",
+      "rate": 44100,
+      "maxAbsDifference": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "throttle comparison",
+      "rate": 48000,
+      "maxAbsDifference": [
+        0,
+        0,
+        0
+      ],
+      "metrics": [
+        {
+          "peak": 3.522116184234619,
+          "mean": 0.2350904260596707,
+          "rms": 0.6160057780756125,
+          "acRms": 0.5693817789476787,
+          "nonfinite": 0
+        },
+        {
+          "peak": 2.2116546630859375,
+          "mean": 0.3990918223708797,
+          "rms": 0.7307610779072781,
+          "acRms": 0.6121580435646478,
+          "nonfinite": 0
+        },
+        {
+          "peak": 3.3259377479553223,
+          "mean": -0.45817446351871877,
+          "rms": 1.2284399521707112,
+          "acRms": 1.1397986125050836,
+          "nonfinite": 0
+        }
+      ]
+    },
+    {
+      "name": "cold zero RPM after 1s settling",
+      "rate": 48000,
+      "metrics": [
+        {
+          "peak": 0.8318537473678589,
+          "mean": 0.033063616960264615,
+          "rms": 0.25852062427165146,
+          "acRms": 0.25639756318520135,
+          "nonfinite": 0
+        },
+        {
+          "peak": 0.6944557428359985,
+          "mean": 0.23099412071333295,
+          "rms": 0.2677754856072189,
+          "acRms": 0.13544529112544326,
+          "nonfinite": 0
+        },
+        {
+          "peak": 3.578446626663208,
+          "mean": -0.3300973036158484,
+          "rms": 0.596695126698271,
+          "acRms": 0.4970722727843629,
+          "nonfinite": 0
+        }
+      ]
+    },
+    {
+      "name": "3000 to zero RPM after 1s settling",
+      "rate": 48000,
+      "metrics": [
+        {
+          "peak": 0.9973717331886292,
+          "mean": 0.018119928560217886,
+          "rms": 0.24307931033537425,
+          "acRms": 0.24240301009289011,
+          "nonfinite": 0
+        },
+        {
+          "peak": 0.7770488858222961,
+          "mean": 0.21736654804127606,
+          "rms": 0.25346692275836413,
+          "acRms": 0.1303735583821127,
+          "nonfinite": 0
+        },
+        {
+          "peak": 3.078599214553833,
+          "mean": -0.32759196965317317,
+          "rms": 0.5957533286371789,
+          "acRms": 0.49759976889165947,
+          "nonfinite": 0
+        }
+      ],
+      "phase": 0.9999999999995836
+    },
+    {
+      "name": "block size invariance 64 versus 256",
+      "rate": 48000,
+      "maxAbsDifference": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "partial telemetry posted to upstream port",
+      "result": "TypeError: Cannot read properties of undefined (reading 'length')"
+    },
+    {
+      "name": "steady cylinder phases constant random 0.5",
+      "crankshaftNoise": 0.12499999999999935,
+      "phaseOffsets": [
+        0,
+        0.37499999999999933,
+        0.7499999999999987,
+        0.124999999999998
+      ]
+    }
+  ]
+}

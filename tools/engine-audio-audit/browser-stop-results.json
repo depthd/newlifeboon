@@ -1,0 +1,155 @@
+{
+  "environment": {
+    "browser": "156.0.8078.79",
+    "mode": "headless Chromium OfflineAudioContext; no realtime CPU/glitch or listening claims"
+  },
+  "upstreamCommit": "c76c5adb9e63f5a54fb0def3b97e8e0ac1a7dea1",
+  "params": {
+    "cylinders": 4,
+    "intakeWaveguideLength": 100,
+    "exhaustWaveguideLength": 100,
+    "extractorWaveguideLength": 100,
+    "intakeOpenReflectionFactor": 0.01,
+    "intakeClosedReflectionFactor": 0.95,
+    "exhaustOpenReflectionFactor": 0.01,
+    "exhaustClosedReflectionFactor": 0.95,
+    "ignitionTime": 0.016,
+    "straightPipeWaveguideLength": 128,
+    "straightPipeReflectionFactor": 0.01,
+    "mufflerElementsLength": [
+      10,
+      15,
+      20,
+      25
+    ],
+    "action": 0.1,
+    "outletWaveguideLength": 5,
+    "outletReflectionFactor": 0.01
+  },
+  "tests": [
+    {
+      "sampleRate": 44100,
+      "initialRpm": 0,
+      "stopAtS": 0.137,
+      "seconds": 3,
+      "measurementWindow": "seconds 1 to 3",
+      "metrics": [
+        {
+          "peak": 0.982521653175354,
+          "mean": 0.022981978856903677,
+          "rms": 0.2512212258974308,
+          "acRms": 0.25016780965829477,
+          "nonfinite": 0
+        },
+        {
+          "peak": 0.7599619030952454,
+          "mean": 0.22798941938016232,
+          "rms": 0.2634381030548885,
+          "acRms": 0.13198658565117344,
+          "nonfinite": 0
+        },
+        {
+          "peak": 2.999152421951294,
+          "mean": -0.3383940304501767,
+          "rms": 0.5991459809119891,
+          "acRms": 0.49443441081570616,
+          "nonfinite": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "sampleRate": 44100,
+      "initialRpm": 3000,
+      "stopAtS": 0.137,
+      "seconds": 3,
+      "measurementWindow": "seconds 1 to 3",
+      "metrics": [
+        {
+          "peak": 1.1288241147994995,
+          "mean": -0.6064123155634487,
+          "rms": 0.6158752154485267,
+          "acRms": 0.10754712705017053,
+          "nonfinite": 0
+        },
+        {
+          "peak": 0.5705059766769409,
+          "mean": 0.13533176341325004,
+          "rms": 0.19533976021566798,
+          "acRms": 0.14086495565815788,
+          "nonfinite": 0
+        },
+        {
+          "peak": 0.437958300113678,
+          "mean": -0.250032761590323,
+          "rms": 0.254958462099796,
+          "acRms": 0.04987419701418552,
+          "nonfinite": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "sampleRate": 48000,
+      "initialRpm": 0,
+      "stopAtS": 0.137,
+      "seconds": 3,
+      "measurementWindow": "seconds 1 to 3",
+      "metrics": [
+        {
+          "peak": 0.9747146964073181,
+          "mean": 0.0018481345225146756,
+          "rms": 0.25430237369130987,
+          "acRms": 0.25429565797280396,
+          "nonfinite": 0
+        },
+        {
+          "peak": 0.7404530644416809,
+          "mean": 0.22108036355258776,
+          "rms": 0.25525511972408116,
+          "acRms": 0.12758780896625915,
+          "nonfinite": 0
+        },
+        {
+          "peak": 2.981541395187378,
+          "mean": -0.354397035389482,
+          "rms": 0.6111097466147677,
+          "acRms": 0.4978532552014818,
+          "nonfinite": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "sampleRate": 48000,
+      "initialRpm": 3000,
+      "stopAtS": 0.137,
+      "seconds": 3,
+      "measurementWindow": "seconds 1 to 3",
+      "metrics": [
+        {
+          "peak": 1.123164415359497,
+          "mean": -0.6083358179229933,
+          "rms": 0.6177898665013997,
+          "acRms": 0.1076654623534401,
+          "nonfinite": 0
+        },
+        {
+          "peak": 0.5946746468544006,
+          "mean": 0.128992107940088,
+          "rms": 0.19384710123020904,
+          "acRms": 0.14469877243614612,
+          "nonfinite": 0
+        },
+        {
+          "peak": 0.43631041049957275,
+          "mean": -0.2451467787726918,
+          "rms": 0.25034031817863517,
+          "acRms": 0.05072801753620181,
+          "nonfinite": 0
+        }
+      ],
+      "errors": []
+    }
+  ]
+}

@@ -1,0 +1,271 @@
+{
+  "environment": {
+    "browser": "156.0.8078.79",
+    "mode": "headless Chromium OfflineAudioContext; no realtime CPU/glitch or listening claims"
+  },
+  "upstreamCommit": "c76c5adb9e63f5a54fb0def3b97e8e0ac1a7dea1",
+  "params": {
+    "cylinders": 4,
+    "intakeWaveguideLength": 100,
+    "exhaustWaveguideLength": 100,
+    "extractorWaveguideLength": 100,
+    "intakeOpenReflectionFactor": 0.01,
+    "intakeClosedReflectionFactor": 0.95,
+    "exhaustOpenReflectionFactor": 0.01,
+    "exhaustClosedReflectionFactor": 0.95,
+    "ignitionTime": 0.016,
+    "straightPipeWaveguideLength": 128,
+    "straightPipeReflectionFactor": 0.01,
+    "mufflerElementsLength": [
+      10,
+      15,
+      20,
+      25
+    ],
+    "action": 0.1,
+    "outletWaveguideLength": 5,
+    "outletReflectionFactor": 0.01
+  },
+  "tests": [
+    {
+      "sampleRate": 44100,
+      "rpm": 0,
+      "seconds": 3,
+      "measurementWindow": "seconds 1 to 3",
+      "metrics": [
+        {
+          "peak": 1.1041653156280518,
+          "mean": 0.005978199921123597,
+          "rms": 0.2566829602130616,
+          "acRms": 0.2566133340055486,
+          "nonfinite": 0
+        },
+        {
+          "peak": 0.7493924498558044,
+          "mean": 0.22343992557945058,
+          "rms": 0.25851379570169064,
+          "acRms": 0.1300153153484044,
+          "nonfinite": 0
+        },
+        {
+          "peak": 2.9089152812957764,
+          "mean": -0.3508306271956046,
+          "rms": 0.6052448365735319,
+          "acRms": 0.4931928458731534,
+          "nonfinite": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "sampleRate": 44100,
+      "rpm": 750,
+      "seconds": 3,
+      "measurementWindow": "seconds 1 to 3",
+      "metrics": [
+        {
+          "peak": 3.6583034992218018,
+          "mean": 0.09679966444137655,
+          "rms": 0.5214539440246091,
+          "acRms": 0.5123905158205575,
+          "nonfinite": 0
+        },
+        {
+          "peak": 3.2023448944091797,
+          "mean": 0.22369708871464547,
+          "rms": 0.7063062551239305,
+          "acRms": 0.6699463698892493,
+          "nonfinite": 0
+        },
+        {
+          "peak": 3.721367835998535,
+          "mean": -0.13648967951000468,
+          "rms": 0.6524343523613917,
+          "acRms": 0.6379977676516468,
+          "nonfinite": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "sampleRate": 44100,
+      "rpm": 3000,
+      "seconds": 3,
+      "measurementWindow": "seconds 1 to 3",
+      "metrics": [
+        {
+          "peak": 3.8374764919281006,
+          "mean": 0.25822078318625846,
+          "rms": 0.6549658622243648,
+          "acRms": 0.6019155321222247,
+          "nonfinite": 0
+        },
+        {
+          "peak": 2.1502294540405273,
+          "mean": 0.40539929046890594,
+          "rms": 0.7447170336369751,
+          "acRms": 0.6247038302078539,
+          "nonfinite": 0
+        },
+        {
+          "peak": 3.6440205574035645,
+          "mean": -0.45699173762899886,
+          "rms": 1.080776324668848,
+          "acRms": 0.9794059504125606,
+          "nonfinite": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "sampleRate": 44100,
+      "rpm": 5800,
+      "seconds": 3,
+      "measurementWindow": "seconds 1 to 3",
+      "metrics": [
+        {
+          "peak": 4.704247951507568,
+          "mean": 0.4080454779802376,
+          "rms": 0.8123472394142424,
+          "acRms": 0.7024293026944561,
+          "nonfinite": 0
+        },
+        {
+          "peak": 2.3170950412750244,
+          "mean": 0.4910987695350579,
+          "rms": 0.718966536167479,
+          "acRms": 0.5251046359439374,
+          "nonfinite": 0
+        },
+        {
+          "peak": 2.566896677017212,
+          "mean": -0.6350169718805515,
+          "rms": 0.9448877257988243,
+          "acRms": 0.6996901169724559,
+          "nonfinite": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "sampleRate": 48000,
+      "rpm": 0,
+      "seconds": 3,
+      "measurementWindow": "seconds 1 to 3",
+      "metrics": [
+        {
+          "peak": 0.9473931193351746,
+          "mean": 0.015525016875679165,
+          "rms": 0.25668181984514327,
+          "acRms": 0.2562118859265207,
+          "nonfinite": 0
+        },
+        {
+          "peak": 0.8392029404640198,
+          "mean": 0.22445040473733344,
+          "rms": 0.2606405537405396,
+          "acRms": 0.13249722286682966,
+          "nonfinite": 0
+        },
+        {
+          "peak": 3.30414080619812,
+          "mean": -0.3410508959600494,
+          "rms": 0.5928226499474971,
+          "acRms": 0.4848948140118848,
+          "nonfinite": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "sampleRate": 48000,
+      "rpm": 750,
+      "seconds": 3,
+      "measurementWindow": "seconds 1 to 3",
+      "metrics": [
+        {
+          "peak": 3.2971553802490234,
+          "mean": 0.08217938063006,
+          "rms": 0.5143582197569344,
+          "acRms": 0.5077508519252159,
+          "nonfinite": 0
+        },
+        {
+          "peak": 3.545336961746216,
+          "mean": 0.20943098451235947,
+          "rms": 0.70903383547474,
+          "acRms": 0.6773976989732137,
+          "nonfinite": 0
+        },
+        {
+          "peak": 4.490123271942139,
+          "mean": -0.12673769286607953,
+          "rms": 0.6511922655396074,
+          "acRms": 0.6387401066987964,
+          "nonfinite": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "sampleRate": 48000,
+      "rpm": 3000,
+      "seconds": 3,
+      "measurementWindow": "seconds 1 to 3",
+      "metrics": [
+        {
+          "peak": 4.0984416007995605,
+          "mean": 0.23971019853791073,
+          "rms": 0.6415657173640621,
+          "acRms": 0.5951013278541555,
+          "nonfinite": 0
+        },
+        {
+          "peak": 2.9975595474243164,
+          "mean": 0.38888638972668443,
+          "rms": 0.7399676152920782,
+          "acRms": 0.6295390754880832,
+          "nonfinite": 0
+        },
+        {
+          "peak": 3.883383274078369,
+          "mean": -0.40389023344093594,
+          "rms": 1.2253892345374162,
+          "acRms": 1.1569146275552147,
+          "nonfinite": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "sampleRate": 48000,
+      "rpm": 5800,
+      "seconds": 3,
+      "measurementWindow": "seconds 1 to 3",
+      "metrics": [
+        {
+          "peak": 4.836076736450195,
+          "mean": 0.3859621063775397,
+          "rms": 0.7887227598322553,
+          "acRms": 0.6878348961182633,
+          "nonfinite": 0
+        },
+        {
+          "peak": 2.2915730476379395,
+          "mean": 0.4785217604179147,
+          "rms": 0.7214864443353586,
+          "acRms": 0.539962604414619,
+          "nonfinite": 0
+        },
+        {
+          "peak": 2.972923994064331,
+          "mean": -0.5359890710783201,
+          "rms": 1.0745609616040426,
+          "acRms": 0.9313414926266327,
+          "nonfinite": 0
+        }
+      ],
+      "errors": []
+    }
+  ]
+}

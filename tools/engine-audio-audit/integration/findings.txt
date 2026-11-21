@@ -1,0 +1,31 @@
+Независимая проверка интеграции звука — 2026-11-16
+Проверено чтением: Git object c9faa71a16fde48c2beb0db362189b82bb958149 в /workspace/newlifeboon; рабочая ветка work пустая. Проект не менялся. Three.js исходники версии 0.185.1 получены с https://unpkg.com/three@0.185.1/src/audio/. Игровой запуск и прослушивание не выполнялись.
+
+1. Разные часы: render.ts:1181–1183 обрезает dt до 0.1 с; main.ts:1323–1333 копит simTime только реально выполненными шагами. После 500 мс между кадрами симуляция продвинется максимум примерно на 100 мс, звук продолжал бы 500 мс. Поэтому один постоянный offset simTime -> AudioContext.currentTime перестанет работать. Требуются отдельные часы и новый якорь по приходу данных, без ускоренного воспроизведения потерянной истории. 15/30/60/120 обновлений в секунду сами по себе этот дефект не выявят; нужен 500 мс stall.
+
+2. Выход из машины: main.ts:1323 обнуляет bank при !driving, step не вызывается; rpm остаётся прежним. Новый пакет каждый кадр с неизменным rpm не считается устаревшим обычным watchdog. Нужен явный флаг active/parked/absent: в текущей версии звук при выходе плавно выключать, а не выдавать старые rpm за продолжающуюся работу двигателя. Это решение для отсутствующей модели работающего припаркованного двигателя, не физический факт.
+
+3. Смена автомобиля: main.ts:956–963 создаёт новый объект car без сброса simTime; удаление main.ts:1026 ставит car=null. Адаптер должен сообщать lifecycle и generationId, а не считать один бесконечный автомобиль. Профиль Viper нельзя незаметно озвучивать четырёхцилиндровым Logan; неподдерживаемый профиль обозначить/приглушить.
+
+4. Three.js Audio.js:238–243 setNodeSource вызывает connect; connect:430–446 использует source.connect(target) без outputIndex. Три прямых setNodeSource(worklet) подключат выход 0 трижды к разным источникам. Правильный выбор трёх выходов: worklet.connect(tapGain, outputIndex), затем setNodeSource(tapGain). Это особенность API, а не уже существующий дефект проекта.
+
+5. setNodeSource устанавливает hasPlaybackControl=false. Audio.stop:400–407 и pause/play не управляют таким источником. Владелец worklet должен сам останавливать генерацию/отключать узлы и порт. THREE.Audio не заменяет lifecycle. AudioListener берёт глобальный THREE.AudioContext; worklet создаётся в listener.context либо пользовательский context задаётся через THREE.AudioContext.setContext до создания listener. Подключать графы из разных контекстов нельзя.
+
+6. Ложная нейтраль: car.ts:179–180 neutral обозначает угол колёс (рад), не коробку. main.ts:1387 показывает N при |speed|<0.3, даже без физической нейтрали. Реальная минимальная передача: reverse ? -1 : car.gear + 1; 0 не выдавать без физического состояния нейтрали. Эффективный throttle в reverse берётся из controls.brake (car.ts:364). __car().throttle показывает сырую педаль и не подходит как эффективная команда назад.
+
+7. Снимок после шага смены передачи: car.ts:385–389 ratio и rpm вычислены до изменения car.gear в 393–394. На один шаг rpm относится к старой передаче, gear уже новый. Не рассчитывать повторно rpm из gear в аудио. Для звука authoritative rpm; точные события лучше экспортировать из физического шага позднее.
+
+8. Координаты/камера: одна PerspectiveCamera render.ts:1045; режимы меняют её положение, а не создают другие камеры. Хватит одного listener, прикреплённого к существующей камере. Его позицию не брать из viewer.глаз(): там только x/z, отсутствуют высота и ориентация. У машины нос +X (main spawn yaw), у PositionalAudio directional cone по локальной +Z (PositionalAudio.js:225): если включать directional cone, необходимо согласовать оси.
+
+Минимальный будущий адаптер без физической переделки:
+{ generationId, profileId, sequence, simTimeS, audioAnchorS, mode: active|inactive|absent, rpm, effectiveThrottle01, gear: -1|1..N, shiftRemainingS }
+load01 отсутствует/unknown; не переименовывать throttle в физическую нагрузку. Стенд отдельно имеет testLoad01. Поза и камера — отдельный read-only пространственный адаптер после приёмки базового моно-звука. На уровне пакета различать measured-from-current-model и synthetic-test, не усложнять каждое поле флагом без необходимости.
+
+Ссылки:
+https://github.com/depthd/newlifeboon/blob/c9faa71a16fde48c2beb0db362189b82bb958149/src/main.ts#L1316
+https://github.com/depthd/newlifeboon/blob/c9faa71a16fde48c2beb0db362189b82bb958149/src/render.ts#L1179
+https://github.com/depthd/newlifeboon/blob/c9faa71a16fde48c2beb0db362189b82bb958149/src/car/car.ts#L385
+https://unpkg.com/three@0.185.1/src/audio/Audio.js
+https://unpkg.com/three@0.185.1/src/audio/AudioListener.js
+https://unpkg.com/three@0.185.1/src/audio/AudioContext.js
+https://unpkg.com/three@0.185.1/src/audio/PositionalAudio.js
