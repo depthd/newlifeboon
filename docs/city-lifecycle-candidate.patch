@@ -1,0 +1,306 @@
+--- a/src/city/жизнь.ts
++++ b/src/city/жизнь.ts
+@@ -23,7 +23,7 @@
+ import type { Посёлок } from './plan.ts';
+ import { гдеПроём, домНаУчастке } from './дом.ts';
+ import {
+-  type Дорога, type Житель, type Занятие, type Зачем, type Расселение, СУТКИ, где, гдеМашина, кто, провожатыйКвартиры, чем,
++  type Дорога, type Житель, type Занятие, type Зачем, type Расселение, СУТКИ, где, гдеМашина, кто, чем,
+ } from './житель.ts';
+ import type { Вещь } from './двор.ts';
+ import { КОЖА, ОДЕЖДА, ШТАНЫ, type Walker, walkerPose, заРуку } from './walkers.ts';
+@@ -652,8 +652,10 @@
+   /** Первый ещё не случившийся выход и час прошлого кадра. */
+   следующий: number;
+   час: number;
+-  /** Выходы, которым не нашлось места на дороге: ждут просвета. */
+-  readonly ждут: { номер: number; i: number; до: number }[];
++  /** Выходы ждут окончания прежнего действия или просвета, сохраняя исходные сутки. */
++  readonly ждут: { номер: number; i: number; сутки: number }[];
++  /** Пассажиры начатой поездки: расписание следующего дня не меняет состав машины. */
++  readonly пассажиры: Map<Mover, readonly number[]>;
+   /** Где здание выходит на улицу — считается раз на здание. */
+   readonly узнать: (объект: number) => УЗдания | null;
+   /** Сколько вышло на улицу пешком и машиной, и скольким места так и не нашлось. */
+@@ -667,9 +669,6 @@
+    */
+   readonly вещи: () => readonly Вещь[];
+ }
+-
+-/** Больше этого выход не ждёт просвета, часов: человек нашёл другой путь. */
+-const ЖДАТЬ_ПРОСВЕТА = 0.05;
+ 
+ /**
+  * Улица на этот час: все, кто в пути, и все стоящие машины, — и выходы суток.
+@@ -689,13 +688,19 @@
+   let следующий = 0;
+   while (следующий < выходы.length && выходы[следующий].час <= час) следующий++;
+   const все = машиныЖителей(world, net, р, часЖизни, Infinity).машины;
++  const пассажиры = new Map<Mover, readonly number[]>();
++  for (const m of все) {
++    if (m.park?.phase === 'стоит' || m.хозяин < 0) continue;
++    const ж = кто(р, m.хозяин, сутки), положение = где(ж, час);
++    if (положение.где === 'в пути') пассажиры.set(m, ж.день[положение.i].ведёт);
++  }
+   return {
+     машины: все.filter((m) => m.park?.phase !== 'стоит'),
+     стоят: все.filter((m) => m.park?.phase === 'стоит'),
+     стоянка: 0,
+     пешие: пешеходыЖителей(world, net, р, часЖизни, Infinity),
+     разговоры: [],
+-    сутки, выходы, следующий, час, ждут: [], узнать,
++    сутки, выходы, следующий, час, ждут: [], узнать, пассажиры,
+     счёт: { пешком: 0, машиной: 0, несостоялось: 0 },
+     воДворах, вещи,
+   };
+@@ -745,32 +750,17 @@
+   options: { разговор?: 'без конца'; детиСами?: boolean } = {},
+ ): void {
+   const день = Math.floor(часЖизни / СУТКИ), час = часЖизни - день * СУТКИ;
+-  /**
+-   * Полночь: пошли НОВЫЕ сутки — со своими выходами и дворами (завтра у жителя
+-   * другой день). Ждущие просвета держали номер дороги вчерашнего дня —
+-   * он о другом дне, и их выход не состоялся. Разговоры суток — тоже
+-   * заново (идущие дослушают свои).
+-   */
++  /** Новое расписание не отменяет ещё не законченные действия вчерашнего дня. */
+   if (день !== с.сутки) {
+     const новые = выходыСуток(р, день);
+     с.выходы.splice(0, с.выходы.length, ...новые.выходы);
+     с.воДворах.splice(0, с.воДворах.length, ...новые.воДворах);
+     с.сутки = день;
+     с.следующий = 0;
+-    с.счёт.несостоялось += с.ждут.splice(0).length;
+     убрать(с.разговоры, (р2) => р2.до <= часЖизни);
+   }
+-  const случились: { номер: number; i: number; до: number }[] = с.ждут.splice(0);
+-  while (с.следующий < с.выходы.length && с.выходы[с.следующий].час <= час) {
+-    const в = с.выходы[с.следующий++];
+-    случились.push({ номер: в.номер, i: в.i, до: в.час + ЖДАТЬ_ПРОСВЕТА });
+-  }
+-  с.час = час;
+-  for (const в of случились) {
+-    if (выйти(world, net, р, с, в.номер, в.i, день, options)) continue;
+-    if (час < в.до) с.ждут.push(в); else с.счёт.несостоялось++;
+-  }
+-
++  // Сначала завершения движения, затем новые намерения: прибывший в этом
++  // шаге может начать следующий этап; ещё идущий — не может.
+   // сбитая на стоянке — снова тело в движении: её несёт удар
+   const сбиты = с.стоят.filter((m) => m.knocked !== null);
+   if (сбиты.length > 0) {
+@@ -806,6 +796,36 @@
+     for (const b of net.bays) b.taken = -1;
+     for (const m of [...с.машины, ...с.стоят]) if (m.park !== null) net.bays[m.park.bay].taken = 1;
+   }
++  const заняты = new Set<number>();
++  for (const w of с.пешие) {
++    if (w.житель >= 0) заняты.add(w.житель);
++    for (const n of w.ведёт) заняты.add(n);
++  }
++  for (const m of с.машины) {
++    if (m.хозяин >= 0) заняты.add(m.хозяин);
++    for (const n of с.пассажиры.get(m) ?? []) заняты.add(n);
++  }
++  // Контекст нужен лишь пока машина действительно в пути.
++  const машиныВПути = new Set(с.машины);
++  for (const m of с.пассажиры.keys()) if (!машиныВПути.has(m)) с.пассажиры.delete(m);
++  const случились = с.ждут.splice(0);
++  while (с.следующий < с.выходы.length && с.выходы[с.следующий].час <= час) {
++    const в = с.выходы[с.следующий++];
++    случились.push({ номер: в.номер, i: в.i, сутки: день });
++  }
++  с.час = час;
++  for (const в of случились) {
++    const ж = кто(р, в.номер, в.сутки), д = ж.день[в.i];
++    // Сопровождаемый выходит только в составе действия взрослого.
++    if (д.ведёт.includes(в.номер) && !options.детиСами) continue;
++    const группа = options.детиСами ? [в.номер] : [в.номер, ...д.ведёт];
++    if (группа.some((n) => заняты.has(n))
++      || !выйти(world, net, р, с, в.номер, в.i, в.сутки, options)) с.ждут.push(в);
++    // Запущенный или ожидающий этап нельзя обогнать следующим намерением
++    // этого же человека/семьи. Ни таймаут, ни полночь не означают прибытие.
++    for (const n of группа) заняты.add(n);
++  }
++
+ }
+ 
+ /** Выйти из дома дорогой `i` дня. false — на дороге сейчас нет места. */
+@@ -850,6 +870,7 @@
+     своя.маршрут = путь(net, { shape: своя.shape, s: вперёд }, н.до) ?? н.маршрут;
+     своя.доЧаса = доЧаса;
+     своя.стоянка = стоянкаПоездки(world, net, р, ж, д);
++    с.пассажиры.set(своя, options.детиСами ? [] : д.ведёт);
+     с.счёт.машиной++;
+     return true;
+   }
+@@ -868,6 +889,7 @@
+     м.speed = 0;
+     if (нельзяСюда(world, net, с.машины, м, false)) continue;
+     с.машины.push(м);
++    с.пассажиры.set(м, options.детиСами ? [] : д.ведёт);
+     с.счёт.машиной++;
+     return true;
+   }
+@@ -908,9 +930,9 @@
+   }
+   const ж = кто(р, номер, Math.floor(час / СУТКИ));
+   const м = где(ж, час % СУТКИ);
+-  // едет — в своей машине; ребёнок, которого везут, — в машине провожающего
+-  const водитель = м.где === 'в пути' && ж.день[м.i].ведёт.includes(номер) ? провожатыйКвартиры(ж.квартира) : номер;
+-  const машина = с.машины.find((m) => m.хозяин === водитель && m.park?.phase !== 'стоит');
++  // едет — в своей машине; пассажир остаётся с ней и после смены расписания
++  const машина = с.машины.find((m) => (m.хозяин === номер || с.пассажиры.get(m)?.includes(номер))
++    && m.park?.phase !== 'стоит');
+   if (машина !== undefined) {
+     const п = poseOf(world, net, машина);
+     return { x: п.x, z: п.z, yaw: машина.yaw, как: 'едет', объект: null };
+--- /dev/null
++++ b/tools/review-blocked.ts
+@@ -0,0 +1,25 @@
++// Diagnostic injection: hold movement, advance lifecycle by one simulated minute.
++// This tests blocked-action handling; it does not reproduce a natural traffic jam.
++import { дорогиПосёлка, построитьПосёлок } from '../src/city/plan.ts';
++import { buildWorld } from '../src/world/world.ts';
++import { buildNetwork } from '../src/city/traffic.ts';
++import { расселить } from '../src/city/житель.ts';
++import { вывестиНаУлицу, жить } from '../src/city/жизнь.ts';
++const p = построитьПосёлок(20260913, 300, 'город');
++const r = расселить(p), w = buildWorld(дорогиПосёлка(p), 'plain');
++const n = buildNetwork(w), s = вывестиНаУлицу(w, n, r, 0);
++for (let minute = 1; minute <= 1440; minute++) {
++  жить(w, n, r, s, minute / 60);
++  const counts = new Map<number, number>();
++  for (const a of s.пешие) counts.set(a.житель, (counts.get(a.житель) ?? 0) + 1);
++  const duplicate = [...counts].find(([id, count]) => id >= 0 && count > 1);
++  if (duplicate) {
++    console.log(JSON.stringify({ residents: r.всего, hour: minute / 60, duplicate,
++      walkers: s.пешие.filter(a => a.житель === duplicate[0]).map(a => ({
++        id: a.житель, state: a.state, shape: a.shape, s: a.s,
++      })),
++    }));
++    process.exit(1);
++  }
++}
++console.log('No duplicate walkers in blocked-movement experiment');
+--- /dev/null
++++ b/tools/review-lifecycle.ts
+@@ -0,0 +1,66 @@
++/** Independent injected-stall regression. Holds movement while advancing lifecycle.
++ * It does not claim to simulate a natural queue, complete trip, or rendered scene.
++ * Run: node --experimental-strip-types tools/review-lifecycle.ts
++ */
++import { дорогиПосёлка, построитьПосёлок } from '../src/city/plan.ts';
++import { buildWorld } from '../src/world/world.ts';
++import { buildNetwork } from '../src/city/traffic.ts';
++import { расселить } from '../src/city/житель.ts';
++import { вывестиНаУлицу, жить } from '../src/city/жизнь.ts';
++
++const town = построитьПосёлок(20260913, 300, 'город');
++const population = расселить(town), world = buildWorld(дорогиПосёлка(town), 'plain');
++const net = buildNetwork(world), start = 7.8;
++const street = вывестиНаУлицу(world, net, population, start);
++// Clear arrivals already complete in the snapshot before injecting the stall.
++жить(world, net, population, street, start);
++const heldWalkers = [...street.пешие];
++const heldCars = street.машины.filter(c => c.park?.phase !== 'стоит').map(car => ({
++  car, route: JSON.stringify(car.маршрут), until: car.доЧаса,
++}));
++const violations = new Map<string, unknown>();
++const fail = (name: string, detail: unknown): void => {
++  if (!violations.has(name)) violations.set(name, detail);
++};
++let maxRepresentations = 0, afterMidnight = false;
++for (let minute = 1; minute <= 25 * 60; minute++) {
++  const hour = start + minute / 60;
++  жить(world, net, population, street, hour);
++  if (street.сутки >= 1) afterMidnight = true;
++  const owners = new Map<number, string[]>();
++  const add = (id: number, mode: string): void => {
++    if (id < 0) return;
++    const present = owners.get(id) ?? [];
++    present.push(mode); owners.set(id, present);
++    maxRepresentations = Math.max(maxRepresentations, present.length);
++    if (present.length > 1) fail('unique-active-resident', { hour, id, modes: present });
++  };
++  for (const walker of street.пешие) {
++    if (walker.state === 'пришёл') continue;
++    add(walker.житель, 'walker');
++    for (const child of walker.ведёт) add(child, 'accompanied-child');
++  }
++  for (const car of street.машины) if (car.park?.phase !== 'стоит') {
++    add(car.хозяин, 'driver');
++    for (const child of street.пассажиры?.get(car) ?? []) add(child, 'passenger');
++  }
++  for (const held of heldCars) {
++    if (!street.машины.includes(held.car)) fail('held-car-retained', { hour, id: held.car.хозяин });
++    if (JSON.stringify(held.car.маршрут) !== held.route || held.car.доЧаса !== held.until) {
++      fail('active-trip-not-replaced', { hour, id: held.car.хозяин,
++        originalUntil: held.until, newUntil: held.car.доЧаса });
++    }
++  }
++  for (const walker of heldWalkers) {
++    if (!street.пешие.includes(walker)) fail('held-walker-retained', { hour, id: walker.житель });
++  }
++}
++if (!heldWalkers.length || !heldCars.length || !afterMidnight) fail('nonempty-experiment', {
++  walkers: heldWalkers.length, cars: heldCars.length, afterMidnight,
++});
++console.log(JSON.stringify({ experiment: '25 simulated hours, lifecycle each minute, all movement held',
++  residents: population.всего, heldWalkers: heldWalkers.length, heldCars: heldCars.length,
++  accompaniedChildren: heldWalkers.reduce((n, w) => n + w.ведёт.length, 0),
++  maxRepresentations, afterMidnight, violations: Object.fromEntries(violations),
++}, null, 2));
++process.exitCode = violations.size ? 1 : 0;
+--- /dev/null
++++ b/tools/review-release.ts
+@@ -0,0 +1,49 @@
++/** Hold the actual walker, then release it through moveWalkers; do not fake arrival. */
++import { дорогиПосёлка, построитьПосёлок } from '../src/city/plan.ts';
++import { buildWorld } from '../src/world/world.ts';
++import { buildNetwork } from '../src/city/traffic.ts';
++import { расселить } from '../src/city/житель.ts';
++import { вывестиНаУлицу, жить } from '../src/city/жизнь.ts';
++import { moveWalkers } from '../src/city/walkers.ts';
++
++const town = построитьПосёлок(20260913, 300, 'город');
++const population = расселить(town), world = buildWorld(дорогиПосёлка(town), 'plain');
++const reports: object[] = [];
++let failures = 0;
++for (const releaseAt of [7.5, 24 + 1 / 60]) {
++  const net = buildNetwork(world), street = вывестиНаУлицу(world, net, population, 0);
++  // Isolate this existing family's schedule, without changing its routes or times.
++  street.выходы.splice(0, street.выходы.length, ...street.выходы.filter(e => e.номер === 4253));
++  street.пешие.length = 0; street.машины.length = 0; street.стоят.length = 0;
++  for (let minute = 1; minute <= Math.round(releaseAt * 60); minute++) {
++    жить(world, net, population, street, minute / 60);
++  }
++  const originals = street.пешие.filter(w => w.житель === 4253);
++  const first = originals.find(w => w.дорога === 0);
++  const pending = street.ждут.find(e => e.номер === 4253 && e.i === 1);
++  const savedDay = pending === undefined ? null : ('сутки' in pending ? pending.сутки : null);
++  let finishedAt: number | null = null, resumedAt: number | null = null, earlyStart = false;
++  let maxRepresentations = originals.length;
++  for (let tick = 1; tick <= 18000; tick++) {
++    const seconds = tick / 10, hour = releaseAt + seconds / 3600;
++    moveWalkers(world, net, street.пешие, 0.1, hour * 3600);
++    if (first?.state === 'пришёл' && finishedAt === null) finishedAt = seconds;
++    жить(world, net, population, street, hour);
++    const active = street.пешие.filter(w => w.житель === 4253);
++    maxRepresentations = Math.max(maxRepresentations, active.length);
++    if (active.some(w => w.дорога === 1)) {
++      if (finishedAt === null) earlyStart = true;
++      resumedAt = seconds;
++      break;
++    }
++  }
++  const ok = originals.length === 1 && first !== undefined && savedDay === 0
++    && finishedAt !== null && resumedAt !== null && resumedAt >= finishedAt
++    && !earlyStart && maxRepresentations === 1;
++  if (!ok) failures++;
++  reports.push({ releaseAt, resident: 4253, initialRepresentations: originals.length,
++    originalChildren: first?.ведёт, savedDay, finishedAtSeconds: finishedAt,
++    resumedAtSeconds: resumedAt, maxRepresentations, earlyStart, ok });
++}
++console.log(JSON.stringify({ experiment: 'real moveWalkers after injected stall, same-day and midnight', reports }, null, 2));
++process.exitCode = failures ? 1 : 0;

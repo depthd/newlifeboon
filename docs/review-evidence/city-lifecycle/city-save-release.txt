@@ -1,0 +1,35 @@
+{
+  "experiment": "real moveWalkers after injected stall, same-day and midnight",
+  "reports": [
+    {
+      "releaseAt": 7.5,
+      "resident": 4253,
+      "initialRepresentations": 1,
+      "originalChildren": [
+        4255,
+        4256
+      ],
+      "savedDay": 0,
+      "finishedAtSeconds": 195.2,
+      "resumedAtSeconds": 195.2,
+      "maxRepresentations": 1,
+      "earlyStart": false,
+      "ok": true
+    },
+    {
+      "releaseAt": 24.016666666666666,
+      "resident": 4253,
+      "initialRepresentations": 1,
+      "originalChildren": [
+        4255,
+        4256
+      ],
+      "savedDay": 0,
+      "finishedAtSeconds": 195.2,
+      "resumedAtSeconds": 195.2,
+      "maxRepresentations": 1,
+      "earlyStart": false,
+      "ok": true
+    }
+  ]
+}

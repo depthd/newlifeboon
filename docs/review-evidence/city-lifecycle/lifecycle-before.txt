@@ -1,0 +1,29 @@
+{
+  "experiment": "25 simulated hours, lifecycle each minute, all movement held",
+  "residents": 5410,
+  "heldWalkers": 91,
+  "heldCars": 53,
+  "accompaniedChildren": 10,
+  "maxRepresentations": 10,
+  "afterMidnight": true,
+  "violations": {
+    "unique-active-resident": {
+      "hour": 7.8999999999999995,
+      "id": 791,
+      "modes": [
+        "walker",
+        "walker"
+      ]
+    },
+    "held-car-retained": {
+      "hour": 17.25,
+      "id": 3561
+    },
+    "active-trip-not-replaced": {
+      "hour": 17.25,
+      "id": 3561,
+      "originalUntil": null,
+      "newUntil": 18.017366292886436
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "experiment": "25 simulated hours, lifecycle each minute, all movement held",
+  "residents": 5410,
+  "heldWalkers": 91,
+  "heldCars": 53,
+  "accompaniedChildren": 10,
+  "maxRepresentations": 1,
+  "afterMidnight": true,
+  "violations": {}
+}
