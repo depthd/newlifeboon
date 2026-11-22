@@ -15,7 +15,7 @@
 
 import { build } from 'vite';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, rmSync, mkdirSync, copyFileSync } from 'node:fs';
 
 const OUT = 'build/мир.html';
 const PAGES = 'build/pages/index.html';
@@ -38,6 +38,7 @@ const changes = git('log', '-6', '--pretty=%s')
   .join('\n');
 
 await build({
+  configFile: false,
   root: '.',
   base: './',
   logLevel: 'warn',
@@ -80,6 +81,9 @@ writeFileSync(OUT, page);
 // ни во что не оборачивает.
 mkdirSync('build/pages', { recursive: true });
 writeFileSync(PAGES, html);
+// Обе копии города содержат ссылку на автономный полигон рядом.
+execFileSync(process.execPath, ['tools/build-trial.mjs', 'build/pages/trial.html'], { stdio: 'inherit' });
+copyFileSync('build/pages/trial.html', 'build/trial.html');
 
 rmSync(DIST, { recursive: true, force: true });
 console.log(`мир одним файлом: ${OUT}, ${(page.length / 1024 / 1024).toFixed(2)} МБ`);

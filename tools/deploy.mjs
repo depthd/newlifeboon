@@ -20,6 +20,7 @@ import { chromium } from 'playwright';
 const BRANCH = 'gh-pages';
 const FILES = [
   ['build/pages/index.html', 'index.html'],
+  ['build/pages/trial.html', 'trial.html'],
   ['build/pages/report.html', 'report.html'],
 ];
 
