@@ -9,8 +9,13 @@
  */
 
 import { type Passport, cornerSpring, доНоса, engineTorque, frontArm, rearArm, sprungMass } from './passport.ts';
-import { type Tyre, SURFACE_GRIP, tyreForce } from './tyre.ts';
+import { type Tyre, SURFACE_GRIP, tyreForce, peakForce } from './tyre.ts';
 import type { Spot } from './ground.ts';
+import { type Вектор, type Кватернион, повернуть, вОсиКузова, cross } from './contact-math.ts';
+export { type Вектор, type Кватернион, повернуть } from './contact-math.ts';
+import { hullContacts } from './contacts.ts';
+import { solveContacts, type RigidContact } from './contact-impulse.ts';
+import { brakePressure } from './brakes.ts';
 
 /** Общий шаг приложения и проверок: жёсткие контакты рассчитаны на 600 Гц. */
 export const PHYSICS_STEP = 1 / 600;
@@ -45,6 +50,8 @@ export interface Wheel {
   readonly driven: boolean;
   /** Вращение, рад/с. */
   spin: number;
+  /** Давление рабочего тормоза после регулятора ABS, от 0 до 1. */
+  brakePressure: number;
   /** Сжатие подвески от свободного положения, м. Ноль — колесо висит. */
   travel: number;
   /** Свободная длина подвески, м. */
@@ -68,23 +75,6 @@ export interface Wheel {
   material: string;
 }
 
-/** Вектор в мире или в осях кузова: x вперёд, y вверх, z вправо. */
-export interface Вектор { x: number; y: number; z: number }
-/** Поворот кузова в мире — кватернион: четыре числа, которые описывают любой поворот в 3D без «замка» углов. */
-export interface Кватернион { readonly w: number; readonly x: number; readonly y: number; readonly z: number }
-
-/** Повернуть вектор кватернионом (из осей кузова в мир). */
-export function повернуть(q: Кватернион, v: Вектор): Вектор {
-  const tx = 2 * (q.y * v.z - q.z * v.y), ty = 2 * (q.z * v.x - q.x * v.z), tz = 2 * (q.x * v.y - q.y * v.x);
-  return {
-    x: v.x + q.w * tx + (q.y * tz - q.z * ty),
-    y: v.y + q.w * ty + (q.z * tx - q.x * tz),
-    z: v.z + q.w * tz + (q.x * ty - q.y * tx),
-  };
-}
-/** Обратно: из мира в оси кузова. */
-const вОсиКузова = (q: Кватернион, v: Вектор): Вектор => повернуть({ w: q.w, x: -q.x, y: -q.y, z: -q.z }, v);
-const cross = (a: Вектор, b: Вектор): Вектор => ({ x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
 const ВПЕРЁД: Вектор = { x: 1, y: 0, z: 0 };
 const ВВЕРХ: Вектор = { x: 0, y: 1, z: 0 };
 const ВПРАВО: Вектор = { x: 0, y: 0, z: 1 };
@@ -200,7 +190,7 @@ export function createCar(p: Passport, x: number, z: number, yaw: number): Car {
     radius: front ? p.wheelFront.radius : p.wheelRear.radius,
     inertia: front ? p.wheelFront.inertia : p.wheelRear.inertia,
     driven: p.привод === 'перед' ? front : !front,
-    spin: 0, travel: 0, rest: 0, крепление: 0, groundPrev: 0, down: true,
+    spin: 0, brakePressure: 0, travel: 0, rest: 0, крепление: 0, groundPrev: 0, down: true,
     load: 0, slip: 0, angle: 0, use: 0, steer: 0,
     material: 'asphalt',
   });
@@ -262,7 +252,7 @@ export function углыКузова(p: Passport): [number, number, number][] {
 }
 
 /**
- * Жёсткий упор в землю — кузова и колеса, дошедшего до отбойника:
+ * Жёсткий упор полностью сжатого колеса в землю:
  * 1.5 МН/м (весь вес машины на одном углу — 1 см) и сильное гашение В ОБЕ
  * СТОРОНЫ: кузов при ударе мнётся, а не отпружинивает (с гашением только
  * на сжатие удар на 28 м/с подбрасывал машину на 30 м). Упор только
@@ -430,7 +420,7 @@ export function step(
   const along = [0, 0, 0, 0];       // сила пружины вдоль оси подвески
   const ground = [0, 0, 0, 0];      // земля толкает колесо вверх
   const сквозь = [0, 0, 0, 0], скоростьУпора = [0, 0, 0, 0];
-  let groundY = 0, nx = 0, ny = 0, nz = 0, опора = 0;
+  let nx = 0, ny = 0, nz = 0, опора = 0;
   // насколько ось кузова «вверх» смотрит вверх в мире: 1 — стоит ровно
   const s = повернуть(car.q, ВВЕРХ).y;
   const предел = p.suspension.travel + ОТБОЙНИК;
@@ -447,14 +437,16 @@ export function step(
       w.travel = 0; w.down = false;
       continue;
     }
-    groundY += spot.height / 4;
     nx += spot.nx / 4; ny += spot.ny / 4; nz += spot.nz / 4;
 
     // сжатие — вдоль оси подвески: насколько колесо надо поднять по ней,
     // чтобы оно встало на землю. Колесо, смотрящее вбок или вверх (машина
     // на боку, на крыше), земли не касается — там упирается кузов
     const поднять = spot.height + w.radius - free.y;
-    w.travel = s > 0.2 ? clamp(поднять / s, 0, предел) : 0;
+    // Свежий контакт достижим в пределах хода. Поверхность, оказавшаяся
+    // сбоку выше полностью сжатого колеса, встречает кузов своей кромкой.
+    const reachable = w.down || поднять <= предел * s;
+    w.travel = s > 0.2 && reachable ? clamp(поднять / s, 0, предел) : 0;
     w.down = w.travel > 1e-4;
 
     // скорость крепления вверх: движется центр масс и вращается кузов
@@ -471,7 +463,7 @@ export function step(
     if (over > 0) force += over * spring.k * 8;
     along[i] = Math.max(0, force);
     // колесо на отбойнике, а земля ещё выше: дальше давит сам кузов через колесо
-    сквозь[i] = s > 0.2 ? Math.max(0, поднять - предел * s) : 0;
+    сквозь[i] = w.down ? Math.max(0, поднять - предел * s) : 0;
     скоростьУпора[i] = attachRate - roadRate;
   }
 
@@ -510,6 +502,7 @@ export function step(
     момент.x += m.x; момент.y += m.y; момент.z += m.z;
   };
 
+  const contacts: RigidContact[] = [];
   // ── ПРОХОД ВТОРОЙ: силы в четырёх пятнах
   for (let i = 0; i < 4; i++) {
     const w = car.wheels[i];
@@ -545,7 +538,8 @@ export function step(
     w.angle += (angleNow - w.angle) * догнать;
 
     const grip = SURFACE_GRIP[w.material] ?? 1;
-    const force = tyreForce(tyre, { slip: w.slip, angle: w.angle, load: w.load, grip });
+    const parked = !front && controls.handbrake && w.down && w.spin === 0 && Math.hypot(alongWheel, acrossWheel) < CRAWL;
+    const force = parked ? { x: 0, y: 0, use: 0 } : tyreForce(tyre, { slip: w.slip, angle: w.angle, load: w.load, grip }, front ? 0 : 1);
     w.use = force.use;
 
     // назад в оси курса, потом в мир; вместе с толчком земли вверх
@@ -559,43 +553,37 @@ export function step(
 
     // раскрутка колеса
     const share = w.driven ? axleTorque / 2 + (i === левое ? -lock : lock) : 0;
-    const brakeMax = (front ? p.brakeFront : p.brakeRear) * braking
-      + (!front && controls.handbrake ? p.brakeRear * 1.4 : 0);
+    const handbrake = !front && controls.handbrake;
+    const speedOnRoad = Math.abs(alongWheel);
+    const absActive = p.abs && w.down && !handbrake && speedOnRoad > 1.5 && braking > 0;
+    const slipOnBrake = (speedOnRoad - w.spin * w.radius * Math.sign(alongWheel)) / Math.max(speedOnRoad, CRAWL);
+    w.brakePressure = absActive
+      ? brakePressure(w.brakePressure, braking, slipOnBrake, tyre.peakSlip, dt)
+      : braking;
+    const brakeMax = (front ? p.brakeFront : p.brakeRear) * w.brakePressure
+      + (handbrake ? p.brakeRear * 1.4 : 0);
     const inertia = w.inertia + (w.driven ? (p.engineInertia * ratio * ratio) / 2 : 0);
     let spin = w.spin + ((share - force.x * w.radius) / inertia) * dt;
     // тормоз не может раскрутить колесо назад — он только гасит вращение
     const stop = (brakeMax / inertia) * dt;
     spin = Math.abs(spin) <= stop ? 0 : spin - Math.sign(spin) * stop;
-    /**
-     * ABS: тормоз не даёт колесу крутиться медленнее, чем на пике
-     * проскальзывания, — колесо не блокируется, машина тормозит сильнее
-     * и слушается руля. Ручник заднюю ось блокирует мимо ABS, как в жизни.
-     */
-    if (p.abs && brakeMax > 0 && !(controls.handbrake && !front) && Math.abs(alongWheel) > 1) {
-      const край = (alongWheel * (1 - tyre.peakSlip)) / w.radius;
-      if (alongWheel > 0 ? spin < край : spin > край) spin = край;
-    }
     w.spin = spin;
+    if (parked && spin === 0 && w.load > 0) {
+      const peak = peakForce(tyre, grip, w.load);
+      const brakeReserve = Math.max(0, brakeMax - Math.abs(share)) / w.radius;
+      const holding = Math.min(peak.x, peak.y * (tyre.lateralGripByAxle?.[1] ?? 1), brakeReserve);
+      contacts.push({ point: пятно, normal: ВВЕРХ, depth: 0, friction: 0, parkingGrip: holding * dt });
+    }
   }
 
   /**
-   * КУЗОВ О ЗЕМЛЮ: каждый угол ниже земли давит вверх жёстким упором и
-   * скребёт по ней трением.
+   * На ровной земле кузов касается её углами, у обрыва — ещё и рёбрами.
+   * После интегрирования сил импульсы разрешают все касания совместно.
    */
-  for (const [вперёд, вверх, вправо] of углыКузова(p)) {
-    const угол = точкаКузова(car, вперёд, вверх, вправо);
-    const spot = sample(угол.x, угол.z);
-    if (spot.present === false) continue;
-    const глубина = spot.height - угол.y;
-    if (глубина <= 0) continue;
-    const r = { x: угол.x - car.x, y: угол.y - car.y, z: угол.z - car.z };
-    const rv = cross(ω, r);
-    const vxp = car.vx + rv.x, vyp = car.vy + rv.y, vzp = car.vz + rv.z;
-    const N = упор(глубина, vyp);
-    const скольжение = Math.hypot(vxp, vzp);
-    const k = (ТРЕНИЕ_КУЗОВА * N * Math.min(1, скольжение / 0.3)) / Math.max(скольжение, 1e-6);
-    приложить(угол, { x: -vxp * k, y: N, z: -vzp * k });
-  }
+  const corners = углыКузова(p).map(([x, y, z]) => точкаКузова(car, x, y, z));
+  hullContacts(corners, sample, (point, normal, depth) => {
+    contacts.push({ point, normal, depth, friction: ТРЕНИЕ_КУЗОВА });
+  });
 
   // ── сопротивление: воздух — в центре масс, качение — у земли, пока колёса на ней
   const air = 0.5 * AIR * p.dragArea * u * Math.abs(u);
@@ -628,14 +616,16 @@ export function step(
     z: wb.z + ((tb.z - гироскоп.z) / I.z) * dt,
   };
   car.вращение = повернуть(car.q, wbNext);
-  // сопротивление рысканью: без него машина крутится вечно
-  car.вращение.y -= car.вращение.y * Math.min(1, dt * 0.8);
+  // Помощь гасит рысканье только при опоре колёс; в полёте нет такого момента.
+  if (опора > 0) car.вращение.y -= car.вращение.y * Math.min(1, dt * 0.8);
 
+  const correctiveSpin = contacts.length ? solveContacts(car, contacts, p.mass, sprung, I, dt) : null;
   car.x += car.vx * dt;
   car.y += car.vy * dt;
   car.z += car.vz * dt;
   // поворот: q += ½·(0, ω)·q·dt, и снова единичной длины
-  const o = car.вращение, q = car.q;
+  const spin = car.вращение, q = car.q;
+  const o = correctiveSpin ? { x: spin.x + correctiveSpin.x, y: spin.y + correctiveSpin.y, z: spin.z + correctiveSpin.z } : spin;
   const nq = {
     w: q.w + 0.5 * dt * (-o.x * q.x - o.y * q.y - o.z * q.z),
     x: q.x + 0.5 * dt * (o.x * q.w + o.y * q.z - o.z * q.y),

@@ -21,6 +21,8 @@ function magic(s: number): number {
 }
 
 export interface Tyre {
+  /** Множители поперечного сцепления осей в сравнительных опытах; серийная шина — 1/1. */
+  readonly lateralGripByAxle?: readonly [number, number];
   /** Пик сцепления вдоль при опорной нагрузке. */
   readonly gripX: number;
   /** Пик сцепления поперёк при опорной нагрузке. */
@@ -40,9 +42,10 @@ export interface Tyre {
   readonly relaxation: number;
 }
 
-/** Дорожная спортивная шина (Pirelli P Zero на Viper). */
+/** Эффективная дорожная кривая для Viper Track Package на P Zero Corsa. */
 export const P_ZERO: Tyre = {
-  gripX: 1.36,
+  // Оценка по совокупности разгона и торможения Edmunds с моделью ABS.
+  gripX: 1.32,
   gripY: 1.12,
   loadRef: 3900,
   loadPower: 0.86,
@@ -59,7 +62,7 @@ export const P_ZERO: Tyre = {
  * по классу шины.
  */
 export const ЭКОНОМ: Tyre = {
-  // ВЫВЕДЕНО: тормозной путь 100–0 = 42.9 м с ABS (при 1.0 выходило 40.1 м)
+  // ВЫВЕДЕНО: исторический ориентир 100–0 = 42.9 м с ABS (Logan I) (при 1.0 выходило 40.1 м)
   gripX: 0.935,
   // ОЦЕНКА: поперёк — та же доля от продольного, что у спортивной шины
   gripY: 0.84,
@@ -117,7 +120,7 @@ export interface TyreForce {
  * случаев. Любой другой способ («взять минимум», «умножить на коэффициент»)
  * даёт разрыв на границе, а разрыв в силе — это дёрганый руль.
  */
-export function tyreForce(t: Tyre, input: SlipInput): TyreForce {
+export function tyreForce(t: Tyre, input: SlipInput, axle: 0 | 1 = 0): TyreForce {
   const peak = peakForce(t, input.grip, input.load);
   if (peak.x <= 0) return { x: 0, y: 0, use: 0 };
 
@@ -130,5 +133,5 @@ export function tyreForce(t: Tyre, input: SlipInput): TyreForce {
   // направление силы — против скольжения; величина по своей полуоси эллипса
   const fx = (f * sx) / s;
   const fy = (f * sy) / s;
-  return { x: peak.x * fx, y: -peak.y * fy, use: s };
+  return { x: peak.x * fx, y: -peak.y * fy * (t.lateralGripByAxle?.[axle] ?? 1), use: s };
 }

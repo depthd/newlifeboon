@@ -145,6 +145,31 @@ fig.text(0.5, -0.035,
 save(fig,"steering-assist.png")
 
 
+fig, (skid, brake) = plt.subplots(1, 2, figsize=(11, 3.7), constrained_layout=True)
+fig.suptitle("Viper и инструментальные испытания Car and Driver", fontsize=15, weight="bold")
+viper = next(r for r in report["results"] if r["key"] == "viper")
+for ax, target, band, names, values, unit, title in [
+    (skid, 1.02, 0.06, ["Журнал", "Плавный разгон", "Сразу на скорости"],
+     [1.02, viper["circle"]["g"], viper["flyingStartCircle"]["g"]], "g", "Круг диаметром 300 футов"),
+    (brake, 44.5008, 44.5008*0.07, ["Журнал", "Модель"],
+     [44.5008, viper["braking70"]["distanceM"]], "м", "Торможение с 70 миль/ч")
+]:
+    ax.axvspan(target-band, target+band, color=green, alpha=0.13)
+    ax.axvline(target, color=grey, lw=1, ls=":")
+    for k, (name,value) in enumerate(zip(names,values)):
+        ax.scatter(value, -k, s=54, marker="s" if k==0 else "o", color=grey if k==0 else blue, zorder=3)
+        ax.annotate(f"{value:.3f} g" if unit=="g" else f"{value:.2f} м", (value,-k),
+                    xytext=(0,9), textcoords="offset points", ha="center", fontsize=9)
+    ax.set_yticks(-np.arange(len(names)),names)
+    margin = band * 0.72
+    ax.set(xlim=(min(target-band,*values)-margin,max(target+band,*values)+margin),
+           ylim=(-len(names)+0.65,0.65), title=title, xlabel=unit)
+fig.text(0.5, -0.045,
+         "Зелёная полоса — принятый в проекте допуск. Источник — сравнительный тест SRT Viper GTS и Corvette ZR1, 2013.",
+         ha="center", color=grey)
+save(fig, "viper-independent-measurements.png")
+
+
 if args.animation:
     from matplotlib.animation import FFMpegWriter
     from matplotlib.patches import Polygon

@@ -169,15 +169,16 @@ export const radiusFromRevs = (t: { revsPerMile: number }): number =>
 
 /** 2013 SRT Viper GTS. Источник — официальный спец-лист Chrysler/SRT. */
 export const VIPER: Passport = {
-  name: 'Dodge Viper SRT 2013',
+  name: 'SRT Viper GTS Track Package 2013',
   ярлык: 'viper',
-  mass: 1556.3,
+  // Масса GTS Track Package по SRT + принятая масса водителя.
+  mass: 1530.4 + 75,
   frontShare: 0.496,
   wheelbase: 2.51,
   trackFront: 1.598,
   trackRear: 1.55,
   cgHeight: 0.46,
-  yawInertia: 1556.3 * 1.265 * 1.245,
+  yawInertia: (1530.4 + 75) * 1.265 * 1.245,
   length: 4.463,
   width: 1.941,
   height: 1.246,
@@ -214,9 +215,7 @@ export const VIPER: Passport = {
   шина: P_ZERO,
   привод: 'зад',
   переключение: { вверх: 6250, вниз: 2400 },
-  // ABS у Viper есть, но его сцепление выведено из замеров без ABS
-  // в модели — включить его значит выводить сцепление заново
-  abs: false,
+  abs: true,
   рулевое: SPEC.steeringRatio,
   // кузов по центру машины, как рисовался до 28.09: нос в длине/2 от центра масс
   свесПеред: 4.463 / 2 - 2.51 * (1 - 0.496),
@@ -236,7 +235,7 @@ export const VIPER: Passport = {
  * drom.ru — 60 кВт при 5000, 134 Н·м при 2800, передачи 3.727 / 2.048 /
  * 1.393 / 1.029 / 0.756, главная пара 4.5, база 2634, колея 1497 / 1486,
  * шины 185/65 R15, снаряжённая масса 1106–1127 кг, 0–100 за 11.9 с,
- * максимальная 172 км/ч; «За рулём» — тормозной путь со 100 км/ч 42.9 м.
+ * максимальная 172 км/ч; 42.9 м — исторический ориентир по Logan первого поколения.
  */
 export const LOGAN: Passport = {
   name: 'Renault Logan 1.6 8V',
