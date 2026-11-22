@@ -15,10 +15,13 @@ mkdir -p build/verification
 npm run build
 npm run car
 npm run drive
+npm run car:ledges -- --json build/verification/ledges.json
 node tools/contact-audit.mjs . build/verification/contacts.json
 node tools/road-matches.mjs . build/verification/road
 node tools/handling.ts build/verification/handling
 ```
+
+Команда `car:ledges` проверяет 180 положений у составной и криволинейной кромки, 36 случаев на треугольниках игровой поверхности и 12 случаев с балкой или пустотой под кузовом. После потери опоры отслеживаются две секунды движения. Допуск подъёма центра масс составляет 5 см. Проверяются нагрузки отдельных колёс в первый шаг, удержание кузова на балке при вывешенных колёсах и высота падения без опоры. При нарушении команда завершается с кодом 1.
 
 В отчётах есть условия каждого опыта и отдельные результаты. Установив NumPy и matplotlib, можно построить графики через `python tools/handling-plots.py build/verification/handling`. Браузерную проверку города запускает `CHROMIUM_PATH=/usr/bin/chromium npm run ride`. Замените путь на установленный Chromium либо используйте Chromium Playwright. Управление на 30/60/144 кадрах/с проверяет `node tools/car-frames.mjs`.
 
