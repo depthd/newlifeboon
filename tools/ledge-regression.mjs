@@ -7,7 +7,7 @@ import { parseArgs } from 'node:util';
 const { values } = parseArgs({ options: { root: { type: 'string' }, json: { type: 'string' } } });
 const root = resolve(values.root ?? fileURLToPath(new URL('..', import.meta.url)));
 const load = file => import(pathToFileURL(resolve(root, 'src/car', file)).href);
-const { createCar, step, центрКолеса } = await load('car.ts');
+const { createCar, step, центрКолеса, углыКузова, точкаКузова } = await load('car.ts');
 const { LOGAN, VIPER } = await load('passport.ts');
 const { GroundIndex } = await load('ground.ts');
 
@@ -57,7 +57,7 @@ function validState(car) {
     .every(Number.isFinite) && car.wheels.every(w => Number.isFinite(w.load) && w.load >= 0);
 }
 
-function observe(name, p, hz, yaw, offset, sample, settleSeconds = 3) {
+function observe(name, p, hz, yaw, offset, sample, settleSeconds = 3, inspect) {
   const dt = 1 / hz;
   const car = createCar(p, 0, offset, yaw);
   for (let i = 0; i < settleSeconds * hz; i++) step(car, p, p.шина, flat, idle, dt);
@@ -74,6 +74,7 @@ function observe(name, p, hz, yaw, offset, sample, settleSeconds = 3) {
   let firstContacts = [];
   for (let i = 0; i < duration * hz; i++) {
     step(car, p, p.шина, sample, idle, dt);
+    if (inspect && i % (hz / 30) === 0) inspect(car);
     checks.finite = validState(car);
     if (!checks.finite) break;
     if (i === 0) {
@@ -129,10 +130,36 @@ for (const p of cars) for (const hz of rates) {
   drop.checks.freeFall = Math.abs(drop.finalY - (drop.startHeight - 0.5 * 9.80665 * duration ** 2)) < .06;
 }
 
+// Полка шириной 3,4 м заканчивается полукругом радиуса 1,7 м.
+// Проверяем объём кузова на стыке прямой и дуги. Сетка даёт нижнюю оценку
+// проникновения; предел 6 см — инженерный допуск этого испытания прототипа.
+const roundedDepth = (x, z) => 1.7 - Math.hypot(Math.max(Math.abs(x + 2) - 2, 0), z + 1.7);
+const roundedShelf = (x, z) => roundedDepth(x, z) > 0 ? road : empty;
+const intrusionLimit = 0.06;
+for (const p of cars) {
+  const corners = углыКузова(p);
+  const grid = [18, 8, 8].map((intervals, axis) => {
+    const values = corners.map(point => point[axis]);
+    const lo = Math.min(...values), hi = Math.max(...values);
+    return Array.from({ length: intervals + 1 }, (_, i) => lo + (hi - lo) * i / intervals);
+  });
+  for (const hz of [300, 600]) for (const yaw of [.17, .91]) {
+    let deepest = 0;
+    const row = observe('roundedShelf', p, hz, yaw, 0, roundedShelf, 2, car => {
+      for (const x of grid[0]) for (const y of grid[1]) for (const z of grid[2]) {
+        const point = точкаКузова(car, x, y, z);
+        deepest = Math.max(deepest, Math.min(-point.y, roundedDepth(point.x, point.z)));
+      }
+    });
+    row.measuredIntrusion_m = deepest;
+    row.checks.roundedFaceIntrusion = deepest <= intrusionLimit;
+  }
+}
+
 const failed = observations.filter(row => Object.values(row.checks).includes(false));
-const report = { duration_s: duration, maxRise_m: riseLimit, passed: observations.length - failed.length, total: observations.length, observations };
+const report = { roundedIntrusionLimit_m: intrusionLimit, duration_s: duration, maxRise_m: riseLimit, passed: observations.length - failed.length, total: observations.length, observations };
 if (values.json) writeFileSync(values.json, JSON.stringify(report, null, 2) + '\n');
-for (const name of [...Object.keys(analytic), ...Object.keys(meshes), 'beam', 'empty']) {
+for (const name of [...Object.keys(analytic), ...Object.keys(meshes), 'beam', 'empty', 'roundedShelf']) {
   const group = observations.filter(row => row.name === name);
   const count = failed.filter(row => row.name === name).length;
   console.log(`${name}: ${group.length - count}/${group.length}, максимальный подъём ${Math.max(...group.map(r => r.maxRise)).toFixed(4)} м`);

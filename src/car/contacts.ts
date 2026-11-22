@@ -158,6 +158,8 @@ function ledgeContacts(
   const curved = cuts.some((c) => Math.abs(dot(difference(c, cuts[0]), side)) > 0.012);
   if (edges !== boxEdges || curved || onSide(0.025) || !onSide(-0.025)) {
     compoundContacts(points, samples, sample, cuts, cutEdges, top, halfDrop, occupied, contact);
+    // Между удалёнными рёбрами кривая кромка может касаться середины днища.
+    if (edges === boxEdges) bellyContacts(points, sample, contact);
   } else {
     const rimAxis = cross(top, side);
     boxLedge(points, { origin: cuts[0], top, side, rim: scale(rimAxis, 1 / length(rimAxis)) }, contact);
