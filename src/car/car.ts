@@ -583,7 +583,7 @@ export function step(
   const corners = углыКузова(p).map(([x, y, z]) => точкаКузова(car, x, y, z));
   hullContacts(corners, sample, (point, normal, depth) => {
     contacts.push({ point, normal, depth, friction: ТРЕНИЕ_КУЗОВА });
-  });
+  }, опора);
 
   // ── сопротивление: воздух — в центре масс, качение — у земли, пока колёса на ней
   const air = 0.5 * AIR * p.dragArea * u * Math.abs(u);
