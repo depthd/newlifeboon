@@ -16,7 +16,8 @@
     <section class="view" aria-label="Трасса">
       <canvas id="scene" tabindex="0" aria-label="Вид сзади. Щелчок захватывает мышь для руля."></canvas>
       <div class="view-top"><div class="flag"></div><div><strong>Малое кольцо</strong><div class="caption">479 м <b>·</b> сухой асфальт</div></div></div>
-      <div id="telemetry"><div><span id="speed">60</span><small>км/ч</small></div><div class="readout"><strong id="gear">3</strong><small>передача</small></div></div>
+      <div id="telemetry"><div><span id="speed">45</span><small>км/ч</small></div><div class="readout"><strong id="gear">3</strong><small>передача</small></div></div>
+      <div class="steering"><span>Передние колёса</span><b id="steering-angle">0°</b><div class="steering-scale" aria-hidden="true"></div></div>
       <div id="simclock">0:00.0</div>
       <button id="start" class="cta">Начать заезд</button>
       <div class="touch" aria-label="Управление на экране">
@@ -27,6 +28,12 @@
     <aside>
       <h1>Управляемость</h1>
       <fieldset><legend>Машина</legend><div class="switch" id="cars"><button data-car="logan" aria-pressed="true">Renault Logan</button><button data-car="viper" aria-pressed="false">Dodge Viper</button></div></fieldset>
+      <div class="drive-settings">
+        <label for="keyboard-steering">Руль на клавишах</label>
+        <select id="keyboard-steering"><option value="responsive">Быстрый</option><option value="legacy">Прежний</option></select>
+        <label for="start-speed">Скорость старта</label>
+        <select id="start-speed"><option value="45">45 км/ч</option><option value="60">60 км/ч</option></select>
+      </div>
       <fieldset><legend>Что сравниваем</legend><div class="switch triple" id="modes"><button data-mode="stock" aria-pressed="true">Серия</button><button data-mode="balance" aria-pressed="false">Баланс</button><button data-mode="assist" aria-pressed="false">Помощь рулю</button></div></fieldset>
       <div id="experiments" hidden><div class="switch"><button data-letter="A" aria-pressed="true">Вариант A</button><button data-letter="B" aria-pressed="false">Вариант B</button></div>
         <div class="feedback"><button class="text-btn" id="choose">Мне ближе A</button><button class="text-btn" id="reveal" aria-expanded="false">Раскрыть настройки</button></div></div>
@@ -36,7 +43,7 @@
       <div class="key" id="legend"></div>
       <div class="actions"><button id="restart">↺ &nbsp; На старт</button><button id="export" disabled>Скачать заезды</button></div>
       <details class="help"><summary>Как проехать сравнение</summary>
-      <p>Начни на 60 км/ч. У оранжевых конусов плавно поверни вправо. После вершины поворота дай газ. Вернись на старт и повтори с другой настройкой. Линии обоих заездов появятся на карте.</p>
+      <p>Попробуй нажать D и сразу A на прямой. Посмотри, как быстро меняется угол передних колёс и куда пошла линия за машиной. Повтори с прежним рулём на той же скорости. У конусов поверни вправо. На выходе из дуги дай газ.</p>
       <p><kbd>W</kbd> газ, <kbd>S</kbd> тормоз, <kbd>A</kbd> <kbd>D</kbd> руль. Также работают стрелки. Щёлкни по трассе для руления мышью, <kbd>Esc</kbd> освобождает курсор. <kbd>P</kbd> пауза, <kbd>R</kbd> повтор.</p></details>
       <div class="shortcuts"><span><kbd>W</kbd><kbd>S</kbd> педали</span><span><kbd>A</kbd><kbd>D</kbd> руль</span><span><kbd>R</kbd> повтор</span></div>
     </aside>

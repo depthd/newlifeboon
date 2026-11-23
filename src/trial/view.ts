@@ -5,6 +5,7 @@ import { pointAt, trackLength, halfWidth, laneOffset } from './course.ts';
 type Point = { x: number; y: number; z: number };
 type Face = { points: Point[]; color: string };
 type Projected = { x: number; y: number; d: number };
+const angleDelta = (to: number, from: number) => Math.atan2(Math.sin(to - from), Math.cos(to - from));
 const world = (x: number, y: number, z: number): Point => ({ x, y, z });
 const roadPoint = (s: number, offset: number, y = 0): Point => {
   const p = pointAt(s);
@@ -246,18 +247,23 @@ export class ChaseView {
   reset(yaw: number) {
     this.heading = yaw;
   }
-  draw(car: Car, p: Passport, dt: number) {
+  draw(car: Car, p: Passport, dt: number, trail: readonly { x: number; z: number }[] = []) {
     const { ctx, w, h } = resizeCanvas(this.canvas);
     if (w <= 0 || h <= 0) return;
-    const delta = Math.atan2(Math.sin(car.yaw - this.heading), Math.cos(car.yaw - this.heading));
-    this.heading += delta * (1 - Math.exp(-6 * dt));
-    const yaw = this.heading + 0.12,
+    const speed = Math.hypot(car.vx, car.vz);
+    // Камера держится за траекторию. Когда нос уходит вбок, это видно на фоне дороги.
+    const nose = car.yaw;
+    const slip = angleDelta(Math.atan2(car.vz, car.vx), nose);
+    const followsCourse = Math.min(0.75, Math.max(0, (speed - 2) / 8)) * Math.max(0, Math.cos(slip));
+    const heading = nose + slip * followsCourse;
+    this.heading += angleDelta(heading, this.heading) * (1 - Math.exp(-12 * dt));
+    const yaw = this.heading + 0.075,
       co = Math.cos(yaw),
       si = Math.sin(yaw);
     const cam = world(
-      car.x - 9.2 * Math.cos(this.heading) + 1.55 * Math.sin(this.heading),
-      car.y + 2.8,
-      car.z - 9.2 * Math.sin(this.heading) - 1.55 * Math.cos(this.heading),
+      car.x - 8.5 * Math.cos(this.heading) + 0.95 * Math.sin(this.heading),
+      car.y + 3.25,
+      car.z - 8.5 * Math.sin(this.heading) - 0.95 * Math.cos(this.heading),
     );
     const f = Math.min(w * 0.9, h * 0.9),
       horizon = h * 0.38;
@@ -388,6 +394,19 @@ export class ChaseView {
       ctx.stroke();
     };
     for (const face of terrain) drawFace(face.points.map(cameraPoint), face.color);
+    const tail = trail.slice(-16).map(({ x, z }) => cameraPoint(world(x, 0.025, z)));
+    ctx.strokeStyle = '#dafe639e';
+    ctx.lineWidth = Math.max(2, h * 0.004);
+    ctx.beginPath();
+    let visible = false;
+    for (const point of tail) {
+      if (point.d <= 0.35) { visible = false; continue; }
+      const sx = w / 2 + (f * point.x) / point.d, sy = horizon + (f * point.y) / point.d;
+      if (visible) ctx.lineTo(sx, sy);
+      else ctx.moveTo(sx, sy);
+      visible = true;
+    }
+    ctx.stroke();
     const shadow: Projected[] = [];
     for (let i = 0; i < 18; i++) {
       const a = (i * 2 * Math.PI) / 18;

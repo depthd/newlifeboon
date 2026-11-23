@@ -1,5 +1,5 @@
 import { type Car, type Controls, createCar, PHYSICS_STEP, step } from '../car/car.ts';
-import { createDriver } from '../car/controls.ts';
+import { createDriver, type KeyboardSteering } from '../car/controls.ts';
 import { LOGAN, VIPER } from '../car/passport.ts';
 import { halfWidth, laneOffset, pointAt, progressAt, trackLength, trackSurface } from './course.ts';
 import { type Balance, trialPassport } from './profiles.ts';
@@ -7,13 +7,15 @@ import { ChaseView, resizeCanvas } from './view.ts';
 
 type Mode = 'stock' | 'balance' | 'assist';
 type Letter = 'A' | 'B';
-type Sample = { t: number; x: number; z: number; kmh: number; steer: number; gas: number; brake: number };
+type Sample = { t: number; x: number; z: number; kmh: number; steer: number; wheelAngle: number; gas: number; brake: number };
 type Run = {
   model: string;
   mode: Mode;
   letter: string;
   balance: Balance;
   assist: boolean;
+  keyboard: KeyboardSteering;
+  start_kmh: number;
   samples: Sample[];
   laps: number[];
   clipped: boolean;
@@ -29,7 +31,10 @@ const go = element<HTMLButtonElement>('start'),
 const speedEl = element('speed'),
   gearEl = element('gear'),
   clockEl = element('simclock'),
-  lapEl = element('lap');
+  lapEl = element('lap'),
+  steeringEl = element('steering-angle');
+const speedSelect = element<HTMLSelectElement>('start-speed'),
+  keyboardSelect = element<HTMLSelectElement>('keyboard-steering');
 const experiments = element('experiments'),
   brief = element('brief'),
   details = element('details'),
@@ -54,7 +59,6 @@ const order = blindOrder();
 const choices: Record<string, Letter> = {};
 const neutral: Controls = { steer: 0, throttle: 0, brake: 0, handbrake: false, assist: false };
 const startX = 84;
-const startMps = 60 / 3.6;
 const samplesHz = 10;
 const traceColors: Record<string, string> = { Серия: '#dafe63', A: '#75d9e3', B: '#ffad72' };
 
@@ -107,9 +111,9 @@ function selections() {
   reveal.textContent = opened ? 'Скрыть настройки' : 'Раскрыть настройки';
   brief.textContent =
     mode === 'stock'
-      ? 'Старт на 60 км/ч. У трёх конусов поверни вправо. На выходе прибавь газ. Сравни обе машины.'
+      ? 'У трёх конусов поверни вправо. Для первой попытки отпусти газ до выхода из поворота.'
       : mode === 'balance'
-        ? 'Два экспериментальных комплекта шин. Повтори вход на 60 км/ч в A и B. Помощь рулю выключена в обоих заездах.'
+        ? 'Для сравнения шин выбери старт на 60 км/ч и повтори один поворот в A и B. Помощь рулю выключена в обоих заездах.'
         : 'Одна серийная машина и две настройки руля. В A и B попробуй быстро вернуть машину на дугу после коррекции.';
   const letters = mode === 'stock' ? ['Серия'] : ['A', 'B'];
   legend.replaceChildren();
@@ -126,11 +130,13 @@ function newCar(): Car {
   const balance: Balance = mode === 'balance' ? underlying() : 'standard';
   passport = trialPassport(model, balance);
   driver.assist = mode === 'stock' || (mode === 'assist' && underlying() === 'b');
+  driver.keyboard = keyboardSelect.value === 'legacy' ? 'legacy' : 'responsive';
   const c = createCar(passport, startX, 0, 0);
   for (let i = 0; i < Math.round(1 / PHYSICS_STEP); i++)
     step(c, passport, passport.шина, trackSurface, neutral, PHYSICS_STEP);
-  c.vx = startMps;
-  for (const wheel of c.wheels) wheel.spin = startMps / wheel.radius;
+  const startKmh = Number(speedSelect.value);
+  c.vx = startKmh / 3.6;
+  for (const wheel of c.wheels) wheel.spin = c.vx / wheel.radius;
   const wheel = c.wheels.find((w) => w.driven)!;
   const rpm = (ratio: number) => (wheel.spin * ratio * passport.finalDrive * 60) / (2 * Math.PI);
   c.gear = passport.gears.findIndex((r) => rpm(r) < passport.переключение.вверх * 0.74);
@@ -142,6 +148,8 @@ function newCar(): Car {
     letter: mode === 'stock' ? 'Серия' : letter,
     balance,
     assist: driver.assist,
+    keyboard: driver.keyboard,
+    start_kmh: startKmh,
     samples: [],
     laps: [],
     clipped: false,
@@ -205,6 +213,11 @@ function hud() {
       : 'Вне трассы';
   drawMap();
 }
+function showSteering() {
+  const degrees = car.steer * 180 / Math.PI;
+  steeringEl.parentElement!.style.setProperty('--steer', String(car.steer / passport.steerLock));
+  steeringEl.textContent = Math.abs(degrees) < 0.2 ? '0°' : `${Math.abs(degrees).toFixed(1)}° ${degrees < 0 ? '←' : '→'}`;
+}
 function refreshRun() {
   if (run && run.samples.length) {
     history.push(run);
@@ -230,6 +243,7 @@ function refreshRun() {
   state.textContent = 'ГОТОВ К СТАРТУ';
   exportButton.disabled = history.length === 0 && !Object.keys(choices).length;
   view.draw(car, passport, 1);
+  showSteering();
   hud();
 }
 
@@ -247,13 +261,14 @@ function pause() {
   driver.detach();
   driver = createDriver(scene);
   driver.assist = run.assist;
+  driver.keyboard = run.keyboard;
   driver.anchor();
   state.textContent = 'ПАУЗА';
   go.hidden = false;
   go.textContent = 'Продолжить';
 }
 function simulate() {
-  const input = driver.read(PHYSICS_STEP);
+  const input = driver.read(PHYSICS_STEP, Math.hypot(car.vx, car.vz));
   step(car, passport, passport.шина, trackSurface, input, PHYSICS_STEP);
   ticks++;
   elapsed = ticks * PHYSICS_STEP;
@@ -278,6 +293,7 @@ function simulate() {
         z: car.z,
         kmh: 3.6 * Math.hypot(car.vx, car.vz),
         steer: input.steer,
+        wheelAngle: car.steer,
         gas: input.throttle,
         brake: input.brake,
       });
@@ -288,6 +304,8 @@ function simulate() {
 
 go.onclick = play;
 element('restart').onclick = refreshRun;
+speedSelect.onchange = refreshRun;
+keyboardSelect.onchange = refreshRun;
 reveal.onclick = () => {
   opened = !opened;
   selections();
@@ -389,11 +407,12 @@ function frame(now: number) {
     for (let i = 0; i < count; i++) simulate();
     residual = Math.max(0, residual - count * PHYSICS_STEP);
   }
-  view.draw(car, passport, dt);
+  view.draw(car, passport, dt, run.samples);
   if (now >= nextHud) {
     hud();
     nextHud = now + 75;
   }
+  showSteering();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

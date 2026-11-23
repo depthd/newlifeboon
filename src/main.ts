@@ -1321,7 +1321,7 @@ viewer.onFrame((dt) => {
   // Округляем только эту погрешность, иначе смена клавиши попадает на другой шаг.
   const stepsThisFrame = Math.floor((bank + 1e-12) / PHYSICS_STEP);
   for (let tick = 0; tick < stepsThisFrame; tick++) {
-    controls = driver.read(PHYSICS_STEP);
+    controls = driver.read(PHYSICS_STEP, Math.hypot(car.vx, car.vz));
     lastControls = controls;
     // перед последним шагом этого кадра — запомнить, откуда он шагнул
     if (tick === stepsThisFrame - 1) позаДо = позаМашины(car);
